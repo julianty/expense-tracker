@@ -1,0 +1,186 @@
+// Splitwise Clone — Prisma Schema
+// DB: Supabase (PostgreSQL)
+// Auth: Supabase Auth (users managed externally; referenced by UUID)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth — thin wrapper around Supabase Auth users
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(uuid()) // matches Supabase auth.users.id
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  groupsCreated Group[]       @relation("GroupCreator")
+  memberSlots   GroupMember[]
+}
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+
+model Group {
+  id             String   @id @default(cuid())
+  name           String
+  baseCurrency   String   @default("USD")
+  shareToken     String   @unique @default(cuid())
+  simplifyDebts  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  createdByUserId String?
+
+  createdBy User?         @relation("GroupCreator", fields: [createdByUserId], references: [id])
+  members   GroupMember[]
+  expenses  Expense[]
+  settlements Settlement[]
+  auditLogs AuditLog[]
+}
+
+// ---------------------------------------------------------------------------
+// Group Members — name-slot model
+// A slot exists independently of any real user account.
+// Claiming it links the slot to a user; unclaiming never breaks expense history.
+// ---------------------------------------------------------------------------
+
+model GroupMember {
+  id              String   @id @default(cuid())
+  groupId         String
+  displayName     String
+  claimedByUserId String?
+  createdAt       DateTime @default(now())
+
+  group       Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  claimedBy   User?   @relation(fields: [claimedByUserId], references: [id])
+
+  expensesCreated  Expense[]        @relation("ExpenseCreator")
+  expensePayments  ExpensePayment[]
+  expenseShares    ExpenseShare[]
+  settlementsFrom  Settlement[]     @relation("SettlementFrom")
+  settlementsTo    Settlement[]     @relation("SettlementTo")
+  auditLogs        AuditLog[]
+
+  @@unique([groupId, displayName])
+  @@index([groupId])
+}
+
+// ---------------------------------------------------------------------------
+// Expenses
+// ---------------------------------------------------------------------------
+
+model Expense {
+  id               String    @id @default(cuid())
+  groupId          String
+  description      String
+  note             String?
+  date             DateTime  @default(now())
+  currency         String    @default("USD")
+  /// Exchange rate to group base currency at time of entry (1.0 if same currency)
+  fxRate           Decimal   @default(1) @db.Decimal(18, 8)
+  imageUrl         String?
+  createdByMemberId String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime? // soft delete
+
+  group       Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy   GroupMember   @relation("ExpenseCreator", fields: [createdByMemberId], references: [id])
+  payments    ExpensePayment[]
+  shares      ExpenseShare[]
+
+  @@index([groupId])
+  @@index([groupId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Who paid (supports splitting payer across multiple members)
+// Constraint: SUM(amountCents) across all payments = total expense in base currency
+// ---------------------------------------------------------------------------
+
+model ExpensePayment {
+  id          String  @id @default(cuid())
+  expenseId   String
+  memberId    String
+  amountCents Int     // integer cents in group base currency
+
+  expense Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  GroupMember @relation(fields: [memberId], references: [id])
+
+  @@unique([expenseId, memberId])
+  @@index([expenseId])
+}
+
+// ---------------------------------------------------------------------------
+// Who owes (one row per member per expense)
+// Key invariant: SUM(amountCents) across all shares for an expense = 0
+// (positive = you owe, negative = you are owed; must cancel out)
+// ---------------------------------------------------------------------------
+
+model ExpenseShare {
+  id          String  @id @default(cuid())
+  expenseId   String
+  memberId    String
+  /// Net contribution in base currency cents.
+  /// Payer rows are NEGATIVE (money owed to them); debtor rows are POSITIVE.
+  amountCents Int
+
+  expense Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  GroupMember @relation(fields: [memberId], references: [id])
+
+  @@unique([expenseId, memberId])
+  @@index([expenseId])
+}
+
+// ---------------------------------------------------------------------------
+// Settlements — records a manual payment between two members
+// ---------------------------------------------------------------------------
+
+model Settlement {
+  id           String   @id @default(cuid())
+  groupId      String
+  fromMemberId String
+  toMemberId   String
+  amountCents  Int      // in group base currency
+  date         DateTime @default(now())
+  note         String?
+  createdAt    DateTime @default(now())
+
+  group      Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fromMember GroupMember @relation("SettlementFrom", fields: [fromMemberId], references: [id])
+  toMember   GroupMember @relation("SettlementTo", fields: [toMemberId], references: [id])
+
+  @@index([groupId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit Log — append-only; every mutation writes a row
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id              String    @id @default(cuid())
+  groupId         String
+  actorMemberId   String
+  action          String    // e.g. "expense.create", "expense.edit", "settlement.create", "expense.revert"
+  entityType      String?   // "expense" | "settlement" | "member"
+  entityId        String?
+  beforeJson      Json?
+  afterJson       Json?
+  revertedByLogId String?   @unique // set on the revert entry, points to the entry being reverted
+  createdAt       DateTime  @default(now())
+
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  actor       GroupMember @relation(fields: [actorMemberId], references: [id])
+  revertedBy  AuditLog?   @relation("RevertChain", fields: [revertedByLogId], references: [id])
+  reverts     AuditLog[]  @relation("RevertChain")
+
+  @@index([groupId, createdAt])
+  @@index([actorMemberId])
+}

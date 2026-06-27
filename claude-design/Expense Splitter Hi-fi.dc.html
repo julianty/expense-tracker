@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; color: #0A0A0A; }
+  .tnum { font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:24px;width:900px">
+  <div style="font:500 30px 'Inter';color:#0A0A0A;letter-spacing:-0.01em">Hi-fi — Splitwise-lite</div>
+  <div style="font:400 15px 'Inter';color:#71717A;margin-top:2px">Landing · Auth · Group list · Group detail</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- LANDING / DEMO -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:80px;top:110px;width:760px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Landing / demo — /</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;border:1px solid #E4E4E7">
+    <!-- top nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid #E4E4E7">
+      <div style="font:500 17px 'Inter'">Splitwise-lite</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font:500 14px 'Inter';color:#0A0A0A;padding:8px 14px;border:1px solid #E4E4E7;border-radius:6px">Sign in</span>
+        <span style="font:500 14px 'Inter';color:#fff;background:#C57C24;padding:8px 14px;border-radius:6px">Try the demo</span>
+      </div>
+    </div>
+    <!-- hero + preview -->
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:32px;padding:44px 28px 40px">
+      <div>
+        <div style="font:500 36px 'Inter';line-height:1.15;letter-spacing:-0.02em;color:#0A0A0A">Split expenses without the spreadsheet.</div>
+        <div style="font:400 16px 'Inter';line-height:1.5;color:#71717A;margin-top:14px;max-width:380px">Track who paid, who owes, and settle up in a tap. Multi-currency, simplified debts, shareable by link — no account needed for guests.</div>
+        <div style="display:flex;gap:10px;margin-top:24px">
+          <span style="font:500 14px 'Inter';color:#fff;background:#C57C24;padding:10px 18px;border-radius:6px">Try the demo</span>
+          <span style="font:500 14px 'Inter';color:#0A0A0A;padding:10px 18px;border:1px solid #E4E4E7;border-radius:6px">Sign in</span>
+        </div>
+      </div>
+      <!-- demo preview card -->
+      <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;position:relative;background:#fff">
+        <span style="position:absolute;top:12px;right:12px;font:500 11px 'Inter';color:#71717A;background:#F4F4F5;border-radius:6px;padding:2px 8px">demo</span>
+        <div style="font:500 15px 'Inter'">Tahoe trip</div>
+        <div style="font:400 12px 'Inter';color:#71717A;margin-top:1px">3 members · USD</div>
+        <div style="height:1px;background:#E4E4E7;margin:14px 0"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:28px;height:28px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 11px 'Inter'">AL</span>
+            <span style="font:400 13px 'Inter';flex:1">Alex</span>
+            <span style="font:500 12px 'Inter';color:#15803D;background:#F0F7F2;border-radius:6px;padding:2px 8px" class="tnum">Owed $28.00</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:28px;height:28px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 11px 'Inter'">BO</span>
+            <span style="font:400 13px 'Inter';flex:1">Bo</span>
+            <span style="font:500 12px 'Inter';color:#B91C1C;background:#FBF1F1;border-radius:6px;padding:2px 8px" class="tnum">Owes $14.50</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:28px;height:28px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 11px 'Inter'">CA</span>
+            <span style="font:400 13px 'Inter';flex:1">Cam</span>
+            <span style="font:500 12px 'Inter';color:#71717A;background:#F4F4F5;border-radius:6px;padding:2px 8px">Settled</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- AUTH -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:920px;top:110px;width:420px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Auth — /login</div>
+  <div style="background:#FAFAFA;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;padding:48px 40px;display:flex;justify-content:center">
+    <div style="width:340px;background:#fff;border:1px solid #E4E4E7;border-radius:12px;padding:24px">
+      <div style="font:500 18px 'Inter';text-align:center">Splitwise-lite</div>
+      <div style="font:400 13px 'Inter';color:#71717A;text-align:center;margin-top:4px">Sign in to your groups</div>
+      <!-- tabs -->
+      <div style="display:flex;margin-top:20px;border-bottom:1px solid #E4E4E7">
+        <div style="flex:1;text-align:center;padding-bottom:10px;font:500 14px 'Inter';color:#C57C24;border-bottom:2px solid #C57C24;margin-bottom:-1px">Account</div>
+        <div style="flex:1;text-align:center;padding-bottom:10px;font:500 14px 'Inter';color:#71717A">Have a link?</div>
+      </div>
+      <div style="margin-top:20px">
+        <div style="font:500 13px 'Inter';margin-bottom:6px">Email</div>
+        <div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter';color:#A1A1AA"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a5dccad0e5c0c8c4ccc98bc6cac8">[email&#160;protected]</a></div>
+        <div style="font:500 13px 'Inter';margin:14px 0 6px">Password</div>
+        <div style="height:36px;border:1.5px solid #C57C24;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter';color:#0A0A0A;box-shadow:0 0 0 2px rgba(197,124,36,.18)">••••••••••</div>
+        <div style="height:38px;background:#C57C24;border-radius:6px;display:flex;align-items:center;justify-content:center;font:500 14px 'Inter';color:#fff;margin-top:20px">Sign in</div>
+        <div style="text-align:center;font:400 13px 'Inter';color:#71717A;margin-top:16px">Don't have an account? <span style="color:#C57C24;font-weight:500">Sign up</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- GROUP LIST -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:80px;top:560px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Group list — /groups</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px 24px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font:500 24px 'Inter';letter-spacing:-0.01em">Your groups</div>
+        <span style="font:500 13px 'Inter';color:#0A0A0A;padding:7px 13px;border:1px solid #E4E4E7;border-radius:6px">New group</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px">
+        <!-- row -->
+        <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font:500 16px 'Inter'">Tahoe trip</div>
+            <div style="display:flex;margin-top:8px">
+              <span style="width:26px;height:26px;border-radius:50%;background:#E8EDF2;color:#3F5366;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">AL</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#F0EAE2;color:#6B5A45;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">BO</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">CA</span>
+            </div>
+          </div>
+          <span style="font:500 13px 'Inter';color:#15803D;background:#F0F7F2;border-radius:6px;padding:4px 10px" class="tnum">Owed $28.00</span>
+        </div>
+        <!-- row -->
+        <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font:500 16px 'Inter'">Apartment 4B</div>
+            <div style="display:flex;margin-top:8px">
+              <span style="width:26px;height:26px;border-radius:50%;background:#E8EDF2;color:#3F5366;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">JO</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#F0EAE2;color:#6B5A45;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">MI</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">Ro</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#F4F4F5;color:#71717A;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">+2</span>
+            </div>
+          </div>
+          <span style="font:500 13px 'Inter';color:#B91C1C;background:#FBF1F1;border-radius:6px;padding:4px 10px" class="tnum">Owes $62.00</span>
+        </div>
+        <!-- row -->
+        <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font:500 16px 'Inter'">Book club</div>
+            <div style="display:flex;margin-top:8px">
+              <span style="width:26px;height:26px;border-radius:50%;background:#E8EDF2;color:#3F5366;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';margin-right:-8px">SA</span>
+              <span style="width:26px;height:26px;border-radius:50%;background:#F0EAE2;color:#6B5A45;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">DE</span>
+            </div>
+          </div>
+          <span style="font:500 13px 'Inter';color:#71717A;background:#F4F4F5;border-radius:6px;padding:4px 10px">Settled</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- GROUP DETAIL -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:600px;top:560px;width:460px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Group detail — /groups/&#123;id&#125; ★ hub</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden;position:relative">
+    <div style="padding:24px 24px 20px">
+      <!-- header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font:500 24px 'Inter';letter-spacing:-0.01em">Tahoe trip</span>
+            <span style="font:500 11px 'Inter';color:#71717A;border:1px solid #E4E4E7;border-radius:6px;padding:2px 7px">USD</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span style="font:500 12px 'Inter';color:#0A0A0A;padding:6px 11px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;gap:6px"><span style="font-size:13px">⧉</span>Copy link</span>
+          <span style="font:500 12px 'Inter';color:#0A0A0A;padding:6px 9px;border:1px solid #E4E4E7;border-radius:6px">⚙</span>
+        </div>
+      </div>
+      <!-- balances card -->
+      <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;margin-top:18px">
+        <div style="font:500 13px 'Inter';color:#0A0A0A;margin-bottom:14px">Balances</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span>
+            <span style="font:400 14px 'Inter';flex:1">Alex</span>
+            <span style="font:500 13px 'Inter';color:#15803D;background:#F0F7F2;border-radius:6px;padding:3px 9px" class="tnum">Owed $28.00</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">BO</span>
+            <span style="font:400 14px 'Inter';flex:1">Bo</span>
+            <span style="font:500 13px 'Inter';color:#B91C1C;background:#FBF1F1;border-radius:6px;padding:3px 9px" class="tnum">Owes $14.50</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">CA</span>
+            <span style="font:400 14px 'Inter';flex:1">Cam</span>
+            <span style="font:500 13px 'Inter';color:#71717A;background:#F4F4F5;border-radius:6px;padding:3px 9px">Settled</span>
+          </div>
+        </div>
+        <div style="height:1px;background:#E4E4E7;margin:16px 0"></div>
+        <div style="text-align:center;font:500 13px 'Inter';color:#0A0A0A;padding:8px;border:1px solid #E4E4E7;border-radius:6px">Settle up</div>
+      </div>
+      <!-- tabs -->
+      <div style="display:flex;gap:24px;border-bottom:1px solid #E4E4E7;margin-top:20px">
+        <div style="font:500 14px 'Inter';color:#C57C24;padding-bottom:10px;border-bottom:2px solid #C57C24;margin-bottom:-1px">Expenses</div>
+        <div style="font:500 14px 'Inter';color:#71717A;padding-bottom:10px">Activity</div>
+      </div>
+      <!-- feed -->
+      <div style="display:flex;flex-direction:column;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #E4E4E7">
+          <span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'">Dinner</div><div style="font:400 12px 'Inter';color:#71717A;margin-top:1px">Alex · Jun 14</div></div>
+          <span style="font:500 14px 'Inter'" class="tnum">$84.00</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #E4E4E7">
+          <span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">BO</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'">Lift tickets</div><div style="font:400 12px 'Inter';color:#71717A;margin-top:1px">Bo · Jun 13</div></div>
+          <span style="font:500 14px 'Inter'" class="tnum">$210.00</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 0">
+          <span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">CA</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'">Groceries</div><div style="font:400 12px 'Inter';color:#71717A;margin-top:1px">Cam · Jun 12</div></div>
+          <span style="font:500 14px 'Inter'" class="tnum">$56.30</span>
+        </div>
+      </div>
+    </div>
+    <!-- FAB -->
+    <span style="position:absolute;right:20px;bottom:20px;width:52px;height:52px;border-radius:50%;background:#C57C24;color:#fff;display:flex;align-items:center;justify-content:center;font:400 28px 'Inter';line-height:1">+</span>
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ADD / EDIT EXPENSE -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:80px;top:1340px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Add / edit expense — /expense/new</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:400 12px 'Inter';color:#71717A">← Back to Tahoe trip</div>
+      <div style="font:500 24px 'Inter';letter-spacing:-0.01em;margin:10px 0 20px">Add expense</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:6px">Description</div>
+          <div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter';color:#A1A1AA">What was this for?</div>
+        </div>
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:6px">Amount</div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;height:44px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:500 20px 'Inter';color:#A1A1AA">$0.00</div>
+            <div style="width:96px;height:44px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:400 14px 'Inter'">EUR <span style="color:#71717A">▾</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#F4F4F5;border-radius:6px;padding:10px 12px">
+          <span style="font:400 13px 'Inter';color:#71717A">Today's rate: 1 USD =</span>
+          <span style="background:#fff;border:1px solid #E4E4E7;border-radius:6px;padding:5px 10px;font:400 13px 'Inter'">0.92 EUR</span>
+        </div>
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:6px">Who paid?</div>
+          <div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:400 14px 'Inter'">
+            <span style="display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 9px 'Inter'">AL</span>Alex</span>
+            <span style="color:#71717A">▾</span>
+          </div>
+          <div style="font:500 13px 'Inter';color:#71717A;margin-top:8px">+ Add payer</div>
+        </div>
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:8px">Split</div>
+          <div style="display:flex;background:#F4F4F5;border-radius:6px;padding:3px">
+            <span style="flex:1;text-align:center;padding:7px;border-radius:5px;font:500 13px 'Inter';background:#C57C24;color:#fff">Equal</span>
+            <span style="flex:1;text-align:center;padding:7px;font:500 13px 'Inter';color:#71717A">Unequal</span>
+            <span style="flex:1;text-align:center;padding:7px;font:500 13px 'Inter';color:#71717A">%</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+            <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:26px;height:26px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">AL</span>Alex<span style="margin-left:auto;color:#71717A" class="tnum">$28.00</span></div>
+            <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:26px;height:26px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">BO</span>Bo<span style="margin-left:auto;color:#71717A" class="tnum">$28.00</span></div>
+            <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:26px;height:26px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">CA</span>Cam<span style="margin-left:auto;color:#71717A" class="tnum">$28.00</span></div>
+          </div>
+          <div style="margin-top:12px"><span style="display:inline-block;font:500 13px 'Inter';color:#15803D;background:#F0F7F2;border-radius:6px;padding:5px 11px">Splits balance ✓</span></div>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1"><div style="font:500 13px 'Inter';margin-bottom:6px">Date</div><div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter'">Jun 14, 2026</div></div>
+          <div style="flex:1"><div style="font:500 13px 'Inter';margin-bottom:6px">Receipt</div><div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:center;font:400 13px 'Inter';color:#71717A">Attach receipt</div></div>
+        </div>
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:6px">Note <span style="color:#A1A1AA;font-weight:400">(optional)</span></div>
+          <div style="height:56px;border:1px solid #E4E4E7;border-radius:6px;padding:10px 12px;font:400 14px 'Inter';color:#A1A1AA">Add a note…</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;border-top:1px solid #E4E4E7;padding-top:18px">
+          <span style="font:500 14px 'Inter';color:#71717A;padding:9px 14px">Cancel</span>
+          <span style="font:500 14px 'Inter';color:#fff;background:#C57C24;border-radius:6px;padding:9px 18px">Save expense</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SETTLE UP -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:600px;top:1340px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Settle up — /settle</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:400 12px 'Inter';color:#71717A">← Back to Tahoe trip</div>
+      <div style="font:500 24px 'Inter';letter-spacing:-0.01em;margin:10px 0 6px">Settle up</div>
+      <div style="font:400 14px 'Inter';color:#71717A;margin-bottom:18px">Two payments clear all balances.</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">CA</span>
+            <span style="color:#71717A">→</span>
+            <span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span>
+          </div>
+          <div style="flex:1;font:400 14px 'Inter'">Cam pays Alex <span style="font-weight:500" class="tnum">$15.00</span></div>
+          <span style="font:500 12px 'Inter';color:#0A0A0A;padding:7px 12px;border:1px solid #E4E4E7;border-radius:6px">Record</span>
+        </div>
+        <div style="border:1px solid #E4E4E7;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">BO</span>
+            <span style="color:#71717A">→</span>
+            <span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span>
+          </div>
+          <div style="flex:1;font:400 14px 'Inter'">Bo pays Alex <span style="font-weight:500" class="tnum">$14.50</span></div>
+          <span style="font:500 12px 'Inter';color:#0A0A0A;padding:7px 12px;border:1px solid #E4E4E7;border-radius:6px">Record</span>
+        </div>
+      </div>
+      <!-- alert dialog -->
+      <div style="margin-top:22px;border:1px solid #E4E4E7;border-radius:12px;padding:20px;background:#FAFAFA">
+        <div style="font:500 11px 'Inter';color:#71717A;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Confirm dialog</div>
+        <div style="font:500 16px 'Inter'">Record this payment?</div>
+        <div style="font:400 14px 'Inter';color:#71717A;line-height:1.5;margin:8px 0 16px">Cam paid Alex $15.00. This updates everyone's balances and adds an entry to the activity log.</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <span style="font:500 13px 'Inter';color:#71717A;padding:8px 14px">Cancel</span>
+          <span style="font:500 13px 'Inter';color:#fff;background:#C57C24;border-radius:6px;padding:8px 16px">Confirm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EXPENSE DETAIL -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:1120px;top:1340px;width:420px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Expense detail — /expense/&#123;id&#125;</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:400 12px 'Inter';color:#71717A">← Back to Tahoe trip</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 2px">
+        <div style="font:500 20px 'Inter'">Dinner</div>
+        <div style="font:500 20px 'Inter'" class="tnum">$84.00</div>
+      </div>
+      <div style="font:400 13px 'Inter';color:#71717A">Jun 14, 2026</div>
+      <div style="height:1px;background:#E4E4E7;margin:18px 0"></div>
+      <div style="font:500 13px 'Inter';margin-bottom:12px">Paid by</div>
+      <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span>Alex<span style="margin-left:auto;font-weight:500" class="tnum">$84.00</span></div>
+      <div style="font:500 13px 'Inter';margin:20px 0 12px">Owes</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">BO</span>Bo<span style="margin-left:auto;color:#B91C1C" class="tnum">$28.00</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font:400 14px 'Inter'"><span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">CA</span>Cam<span style="margin-left:auto;color:#B91C1C" class="tnum">$28.00</span></div>
+      </div>
+      <div style="margin:18px 0;border:1px solid #E4E4E7;border-radius:8px;height:96px;display:flex;align-items:center;justify-content:center;font:400 12px ui-monospace,monospace;color:#A1A1AA;background:repeating-linear-gradient(45deg,#FAFAFA,#FAFAFA 10px,#F4F4F5 10px,#F4F4F5 20px)">receipt.jpg</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #E4E4E7;padding-top:18px">
+        <span style="font:500 13px 'Inter';color:#0A0A0A;padding:8px 16px;border:1px solid #E4E4E7;border-radius:6px">Edit</span>
+        <span style="font:500 13px 'Inter';color:#B91C1C;padding:8px 16px;border:1px solid #B91C1C;border-radius:6px">Undo</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SHARE-LINK ENTRY -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:1640px;top:1340px;width:420px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Share-link entry — /g/&#123;token&#125;</div>
+  <div style="background:#FAFAFA;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;padding:48px 40px;display:flex;justify-content:center">
+    <div style="width:320px;background:#fff;border:1px solid #E4E4E7;border-radius:12px;padding:24px">
+      <div style="font:500 18px 'Inter'">Tahoe trip</div>
+      <div style="font:400 14px 'Inter';color:#71717A;margin-top:4px;margin-bottom:18px">Who are you in this group?</div>
+      <div style="font:500 13px 'Inter';margin-bottom:6px">Your slot</div>
+      <div style="height:40px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px">
+        <span style="display:flex;align-items:center;gap:8px;font:400 14px 'Inter'"><span style="width:24px;height:24px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter'">CA</span>Cam</span>
+        <span style="color:#71717A">▾</span>
+      </div>
+      <div style="margin-top:8px;border:1px solid #E4E4E7;border-radius:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;font:400 13px 'Inter';border-bottom:1px solid #F4F4F5"><span style="width:22px;height:22px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 9px 'Inter'">AL</span>Alex</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;font:400 13px 'Inter';border-bottom:1px solid #F4F4F5"><span style="width:22px;height:22px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 9px 'Inter'">BO</span>Bo</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;font:500 13px 'Inter';color:#C57C24">+ Add myself…</div>
+      </div>
+      <div style="height:38px;background:#C57C24;border-radius:6px;display:flex;align-items:center;justify-content:center;font:500 14px 'Inter';color:#fff;margin-top:18px">Join group</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CREATE / EDIT GROUP -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:80px;top:2400px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Create / edit group — /groups/new</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:500 24px 'Inter';letter-spacing:-0.01em;margin-bottom:20px">New group</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div><div style="font:500 13px 'Inter';margin-bottom:6px">Group name</div><div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter';color:#A1A1AA">e.g. Tahoe trip</div></div>
+        <div><div style="font:500 13px 'Inter';margin-bottom:6px">Base currency</div><div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:400 14px 'Inter'">USD <span style="color:#71717A">▾</span></div></div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px">
+          <div><div style="font:500 14px 'Inter'">Simplify debts</div><div style="font:400 13px 'Inter';color:#71717A;margin-top:2px;max-width:280px">Reduce the number of payments needed to settle up.</div></div>
+          <span style="width:42px;height:24px;border-radius:12px;background:#C57C24;position:relative;flex:none"><span style="position:absolute;right:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff"></span></span>
+        </div>
+        <div>
+          <div style="font:500 13px 'Inter';margin-bottom:10px">Members</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">AL</span><div style="flex:1;height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter'">Alex</div><span style="font:400 16px 'Inter';color:#71717A">✕</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">BO</span><div style="flex:1;height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter'">Bo</div><span style="font:400 16px 'Inter';color:#71717A">✕</span></div>
+          </div>
+          <div style="font:500 13px 'Inter';color:#71717A;margin-top:10px">+ Add member</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;border-top:1px solid #E4E4E7;padding-top:18px">
+          <span style="font:500 14px 'Inter';color:#fff;background:#C57C24;border-radius:6px;padding:9px 18px">Create group</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- GROUP SETTINGS -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:600px;top:2400px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Group settings — /groups/&#123;id&#125;/settings</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:400 12px 'Inter';color:#71717A">← Back to Tahoe trip</div>
+      <div style="font:500 24px 'Inter';letter-spacing:-0.01em;margin:10px 0 20px">Settings</div>
+      <div style="font:500 13px 'Inter';margin-bottom:10px">Group info</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 14px 'Inter'">Tahoe trip</div>
+        <div style="height:36px;border:1px solid #E4E4E7;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:400 14px 'Inter'">USD <span style="color:#71717A">▾</span></div>
+      </div>
+      <div style="height:1px;background:#E4E4E7;margin:20px 0"></div>
+      <div style="font:500 13px 'Inter';margin-bottom:10px">Share link</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1;height:36px;border:1px solid #E4E4E7;background:#F4F4F5;border-radius:6px;display:flex;align-items:center;padding:0 12px;font:400 12px ui-monospace,monospace;color:#71717A;overflow:hidden">app.split/g/x7Qa9k…</div>
+        <span style="font:500 12px 'Inter';padding:8px 11px;border:1px solid #E4E4E7;border-radius:6px">⧉</span>
+      </div>
+      <div style="font:500 13px 'Inter';color:#B91C1C;margin-top:10px">Regenerate link</div>
+      <div style="height:1px;background:#E4E4E7;margin:20px 0"></div>
+      <div style="font:500 13px 'Inter';margin-bottom:12px">Members</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">AL</span><div style="flex:1"><div style="font:400 14px 'Inter'">Alex</div><div style="font:400 12px 'Inter';color:#71717A"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="96f7faf3eed6f3fbf7fffab8f5f9fb">[email&#160;protected]</a></div></div><span style="font:500 11px 'Inter';color:#15803D;background:#F0F7F2;border-radius:6px;padding:3px 8px">claimed</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter'">CA</span><div style="flex:1"><div style="font:400 14px 'Inter'">Cam</div></div><span style="font:500 11px 'Inter';color:#71717A;background:#F4F4F5;border-radius:6px;padding:3px 8px">unclaimed</span></div>
+      <div style="height:1px;background:#E4E4E7;margin:20px 0"></div>
+      <div style="font:500 13px 'Inter';color:#B91C1C;margin-bottom:6px">Danger zone</div>
+      <div style="font:400 13px 'Inter';color:#71717A;margin-bottom:12px">Deleting a group removes all expenses and history. This can't be undone.</div>
+      <span style="display:inline-block;font:500 13px 'Inter';color:#B91C1C;padding:8px 16px;border:1px solid #B91C1C;border-radius:6px">Delete group</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ACTIVITY FEED -->
+<!-- ============================================================ -->
+<div style="position:absolute;left:1120px;top:2400px;width:440px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;left:0;font:500 13px 'Inter';color:#71717A">Activity feed — /activity</div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #E4E4E7;overflow:hidden">
+    <div style="padding:24px">
+      <div style="font:400 12px 'Inter';color:#71717A">← Back to Tahoe trip</div>
+      <div style="font:500 24px 'Inter';letter-spacing:-0.01em;margin:10px 0 14px">Activity</div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #E4E4E7">
+          <span style="width:32px;height:32px;border-radius:50%;background:#E8EDF2;color:#3F5366;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">AL</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'"><span style="font-weight:500">Alex</span> added 'Dinner' · <span class="tnum">$84.00</span></div><div style="font:400 12px 'Inter';color:#71717A;margin-top:2px">Jun 14, 9:21 PM</div></div>
+          <span style="font:500 12px 'Inter';color:#71717A">Revert</span>
+        </div>
+        <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #E4E4E7">
+          <span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">BO</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'"><span style="font-weight:500">Bo</span> paid Alex <span class="tnum">$14.50</span></div><div style="font:400 12px 'Inter';color:#71717A;margin-top:2px">Jun 14, 8:02 PM</div></div>
+        </div>
+        <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #E4E4E7">
+          <span style="width:32px;height:32px;border-radius:50%;background:#E7EFEA;color:#3F5E4C;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">CA</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'"><span style="font-weight:500">Cam</span> reverted 'Gas' · <span class="tnum">$40.00</span></div><div style="font:400 12px 'Inter';color:#71717A;margin-top:2px">Jun 13, 6:40 PM</div></div>
+          <span style="font:500 11px 'Inter';color:#B91C1C;background:#FBF1F1;border-radius:6px;padding:3px 8px">revert</span>
+        </div>
+        <div style="display:flex;gap:12px;padding:14px 0">
+          <span style="width:32px;height:32px;border-radius:50%;background:#F0EAE2;color:#6B5A45;display:flex;align-items:center;justify-content:center;font:500 12px 'Inter';flex:none">BO</span>
+          <div style="flex:1"><div style="font:400 14px 'Inter'"><span style="font-weight:500">Bo</span> added 'Lift tickets' · <span class="tnum">$210.00</span></div><div style="font:400 12px 'Inter';color:#71717A;margin-top:2px">Jun 13, 11:10 AM</div></div>
+          <span style="font:500 12px 'Inter';color:#71717A">Revert</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></x-dc>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+</html>

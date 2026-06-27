@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — see 01-design-system.md
+ * Black & white, one amber accent, reserved green/red for ledger meaning.
+ */
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+  --color-accent: #c57c24;
+  --color-accent-foreground: #ffffff;
+
+  /* Reserved semantic colors — never reused as accent */
+  --color-owed: #15803d; /* you're owed / positive */
+  --color-owed-bg: #f0f7f2;
+  --color-owe: #b91c1c; /* you owe / negative */
+  --color-owe-bg: #fbf1f1;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  --radius-md: 6px;
+  --radius-lg: 12px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+/* Tabular figures so currency columns align */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
