@@ -56,6 +56,10 @@ model GroupMember {
   groupId         String
   displayName     String
   claimedByUserId String?
+  /// Set the first time ANY visitor (guest via share link, or a real account)
+  /// takes this slot. Lets the picker show guest-occupied slots as "taken"
+  /// without requiring an account. Cleared on unclaim.
+  claimedAt       DateTime?
   createdAt       DateTime @default(now())
 
   group       Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
