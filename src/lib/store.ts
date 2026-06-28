@@ -10,6 +10,7 @@
  * session or a group share-token.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import {
   buildExpenseShares,
@@ -19,6 +20,15 @@ import {
   type Payment,
 } from "./ledger";
 import { reconstructParticipants } from "./splits";
+import { canTakeSlot } from "./membership";
+
+/** User-facing claim failure (duplicate name, locked slot). Surfaced on the entry form. */
+export class ClaimError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ClaimError";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types (the shapes the UI consumes; mapped from Prisma models)
@@ -32,6 +42,10 @@ export interface Member {
   displayName: string;
   /** Email of the real account that claimed this slot, if any. */
   claimedEmail?: string;
+  /** When the slot was first taken (guest or account). Absent = free to claim. */
+  claimedAtISO?: string;
+  /** True when an account is linked — slot is locked to share-link re-claims. */
+  accountLinked: boolean;
 }
 
 export interface PayShare {
@@ -159,18 +173,33 @@ export async function getGroupByToken(token: string): Promise<Group | undefined>
   return (await prisma.group.findUnique({ where: { shareToken: token } })) ?? undefined;
 }
 
+type PrismaMemberWithClaimer = {
+  id: string;
+  groupId: string;
+  displayName: string;
+  claimedAt: Date | null;
+  claimedByUserId: string | null;
+  claimedBy: { email: string } | null;
+};
+
+function mapMember(m: PrismaMemberWithClaimer): Member {
+  return {
+    id: m.id,
+    groupId: m.groupId,
+    displayName: m.displayName,
+    claimedEmail: m.claimedBy?.email ?? undefined,
+    claimedAtISO: m.claimedAt?.toISOString(),
+    accountLinked: m.claimedByUserId != null,
+  };
+}
+
 export async function getMembers(groupId: string): Promise<Member[]> {
   const rows = await prisma.groupMember.findMany({
     where: { groupId },
     orderBy: { createdAt: "asc" },
     include: { claimedBy: { select: { email: true } } },
   });
-  return rows.map((m) => ({
-    id: m.id,
-    groupId: m.groupId,
-    displayName: m.displayName,
-    claimedEmail: m.claimedBy?.email ?? undefined,
-  }));
+  return rows.map(mapMember);
 }
 
 export async function getMember(id: string): Promise<Member | undefined> {
@@ -178,13 +207,7 @@ export async function getMember(id: string): Promise<Member | undefined> {
     where: { id },
     include: { claimedBy: { select: { email: true } } },
   });
-  if (!m) return undefined;
-  return {
-    id: m.id,
-    groupId: m.groupId,
-    displayName: m.displayName,
-    claimedEmail: m.claimedBy?.email ?? undefined,
-  };
+  return m ? mapMember(m) : undefined;
 }
 
 export async function getExpenses(groupId: string): Promise<Expense[]> {
@@ -500,6 +523,10 @@ export async function deleteGroup(id: string): Promise<void> {
 /**
  * Claim an existing slot, or create a new one. Returns the acting memberId.
  * When `userId` is given (a signed-in visitor), links the slot to that account.
+ *
+ * A slot already linked to a real account can only be (re)claimed by that same
+ * account — a share-link guest can't take it over. Guest-occupied slots stay
+ * freely re-claimable so the default invite flow lets anyone rejoin.
  */
 export async function claimSlot(opts: {
   groupId: string;
@@ -508,22 +535,63 @@ export async function claimSlot(opts: {
   userId?: string | null;
 }): Promise<string> {
   if (opts.memberId) {
-    const m = await prisma.groupMember.findUnique({ where: { id: opts.memberId }, select: { id: true } });
+    const m = await prisma.groupMember.findUnique({
+      where: { id: opts.memberId },
+      select: { id: true, claimedByUserId: true },
+    });
     if (m) {
-      if (opts.userId) {
-        await prisma.groupMember.update({ where: { id: m.id }, data: { claimedByUserId: opts.userId } });
+      if (!canTakeSlot(m.claimedByUserId, opts.userId)) {
+        throw new ClaimError(
+          "This member is linked to an account. Sign in to that account to act as them.",
+        );
       }
+      await prisma.groupMember.update({
+        where: { id: m.id },
+        data: { claimedByUserId: opts.userId ?? m.claimedByUserId, claimedAt: new Date() },
+      });
       return m.id;
     }
   }
-  const m = await prisma.groupMember.create({
-    data: {
-      groupId: opts.groupId,
-      displayName: opts.newName?.trim() || "Guest",
-      claimedByUserId: opts.userId ?? null,
-    },
+  try {
+    const m = await prisma.groupMember.create({
+      data: {
+        groupId: opts.groupId,
+        displayName: opts.newName?.trim() || "Guest",
+        claimedByUserId: opts.userId ?? null,
+        claimedAt: new Date(),
+      },
+    });
+    return m.id;
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new ClaimError(
+        "That name is already taken in this group. Pick it from the list, or use a different name.",
+      );
+    }
+    throw e;
+  }
+}
+
+/** Release a slot's claim (admin or the holder). Keeps the slot + all its history. */
+export async function unclaimMember(memberId: string): Promise<void> {
+  await prisma.groupMember.update({
+    where: { id: memberId },
+    data: { claimedByUserId: null, claimedAt: null },
   });
-  return m.id;
+}
+
+/** Rename a slot (admin) — fixes typos and relabels. Throws ClaimError on name clash. */
+export async function renameMember(memberId: string, displayName: string): Promise<void> {
+  const name = displayName.trim();
+  if (!name) throw new ClaimError("Name can't be empty.");
+  try {
+    await prisma.groupMember.update({ where: { id: memberId }, data: { displayName: name } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new ClaimError("Another member already has that name in this group.");
+    }
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------
