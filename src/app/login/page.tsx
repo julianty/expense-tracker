@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInAction, signUpAction } from "@/app/auth-actions";
+import { SubmitButton } from "@/components/client";
 
 function LoginCard() {
   const router = useRouter();
@@ -57,12 +58,12 @@ function LoginCard() {
             placeholder={mode === "signup" ? "At least 6 characters" : "••••••••••"}
             className={inputCls}
           />
-          <button
-            type="submit"
-            className="mt-5 h-[38px] w-full cursor-pointer rounded-[6px] bg-accent text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f]"
+          <SubmitButton
+            pendingLabel={mode === "signup" ? "Creating account…" : "Signing in…"}
+            className="mt-5 h-[38px] w-full cursor-pointer rounded-[6px] bg-accent text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:cursor-default disabled:opacity-70"
           >
             {mode === "signup" ? "Create account" : "Sign in"}
-          </button>
+          </SubmitButton>
           <div className="mt-4 text-center text-[13px] text-muted-foreground">
             {mode === "signup" ? "Already have an account? " : "Don't have an account? "}
             <button

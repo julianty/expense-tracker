@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import { Avatar } from "@/components/ui";
 import { renameMemberAction, unclaimMemberAction } from "@/app/actions";
 import { canReleaseSlot } from "@/lib/membership";
@@ -39,6 +40,49 @@ export function Tabs({
       </div>
       <div>{tabs[active].content}</div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Submit button with pending state — reflects the enclosing <form action> while
+// the server action is in flight (React's useFormStatus). Keeps each call site's
+// own styling via `className`; shows a spinner + optional `pendingLabel`.
+// ---------------------------------------------------------------------------
+
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
+  );
+}
+
+export function SubmitButton({
+  children,
+  pendingLabel,
+  disabled,
+  className,
+}: {
+  children: ReactNode;
+  /** Label shown while the action is pending (defaults to `children`). */
+  pendingLabel?: ReactNode;
+  /** Extra disable condition beyond the in-flight state (e.g. validation). */
+  disabled?: boolean;
+  className?: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending || disabled} className={className}>
+      <span className="inline-flex items-center justify-center gap-2">
+        {pending && <Spinner />}
+        {pending ? pendingLabel ?? children : children}
+      </span>
+    </button>
   );
 }
 

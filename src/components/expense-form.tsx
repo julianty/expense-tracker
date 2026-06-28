@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui";
+import { SubmitButton } from "@/components/client";
 import { saveExpenseAction } from "@/app/actions";
 import { CURRENCIES, currencySymbol, formatCents, formatMoneyNumber } from "@/lib/format";
 import { isAllowedReceipt, MAX_RECEIPT_BYTES } from "@/lib/receipts";
@@ -384,13 +385,13 @@ export function ExpenseForm({
           >
             Cancel
           </Link>
-          <button
-            type="submit"
+          <SubmitButton
             disabled={!!receiptError}
+            pendingLabel="Saving…"
             className="cursor-pointer rounded-[6px] bg-accent px-[18px] py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:pointer-events-none disabled:opacity-50"
           >
             Save expense
-          </button>
+          </SubmitButton>
         </div>
       </div>
     </form>

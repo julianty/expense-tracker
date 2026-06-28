@@ -3,6 +3,7 @@ import { Card } from "@/components/ui";
 import { ExpenseForm, type ExpenseFormInitial } from "@/components/expense-form";
 import { expenseTotalCents, getExpense, getGroup, getMembers } from "@/lib/store";
 import { getRatesToBase } from "@/lib/fx";
+import { getActingMemberId } from "@/lib/auth";
 
 export default async function NewExpensePage({
   params,
@@ -17,8 +18,13 @@ export default async function NewExpensePage({
   if (!group) notFound();
   const [members, rates] = await Promise.all([getMembers(id), getRatesToBase(group.baseCurrency)]);
 
+  // Default the payer to whoever is adding the expense (their claimed slot or
+  // share-link guest slot); the form falls back to the first member for anyone
+  // without a resolvable slot. Overridden below when editing.
+  const actingMemberId = await getActingMemberId(id);
+
   // Prefill when editing an existing expense.
-  let initial: ExpenseFormInitial = {};
+  let initial: ExpenseFormInitial = actingMemberId ? { payerMemberId: actingMemberId } : {};
   if (edit) {
     const e = await getExpense(edit);
     if (e && e.groupId === id) {
