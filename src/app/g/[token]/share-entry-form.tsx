@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Avatar } from "@/components/ui";
 import { claimSlotAction } from "@/app/actions";
+import { isSlotSelectable, hasReclaimableSlot, type SlotFlags } from "@/lib/membership";
 
-interface SlotMember {
+interface SlotMember extends SlotFlags {
   id: string;
   displayName: string;
-  claimed: boolean;
 }
 
 export function ShareEntryForm({
@@ -15,16 +15,36 @@ export function ShareEntryForm({
   groupName,
   token,
   members,
+  error,
 }: {
   groupId: string;
   groupName: string;
   token: string;
   members: SlotMember[];
+  error?: string;
 }) {
   const ADD_NEW = "__add_new__";
+  const NONE = "";
   const firstUnclaimed = members.find((m) => !m.claimed)?.id ?? ADD_NEW;
   const [selected, setSelected] = useState(firstUnclaimed);
+  const [returning, setReturning] = useState(false);
   const addingNew = selected === ADD_NEW;
+
+  // The "Returning user?" path only helps if some claimed slot is re-takeable.
+  const hasReclaimable = hasReclaimableSlot(members);
+
+  function handleSlotClick(m: SlotMember) {
+    if (isSlotSelectable(m, returning)) setSelected(m.id);
+  }
+
+  function handleReturningToggle() {
+    setReturning(true);
+    // Require explicit selection — no pre-select prevents accidental mis-claim.
+    setSelected(NONE);
+  }
+
+  const selectedMember = members.find((m) => m.id === selected);
+  const canSubmit = selected !== NONE || addingNew;
 
   return (
     <form
@@ -36,38 +56,58 @@ export function ShareEntryForm({
       {!addingNew && <input type="hidden" name="memberId" value={selected} />}
 
       <div className="text-lg font-medium">{groupName}</div>
-      <p className="mb-[18px] mt-1 text-sm text-muted-foreground">Who are you in this group?</p>
+      <p className="mb-[18px] mt-1 text-sm text-muted-foreground">
+        {returning ? "Click your name to rejoin." : "Who are you in this group?"}
+      </p>
+
+      {error && (
+        <div className="mb-3 rounded-[6px] border border-[#B91C1C]/30 bg-owe-bg px-3 py-2 text-[13px] text-[#B91C1C]">
+          {error}
+        </div>
+      )}
 
       <label className="mb-1.5 block text-[13px] font-medium">Your slot</label>
       <div className="overflow-hidden rounded-lg border border-border">
-        {members.map((m, i) => (
+        {members.map((m, i) => {
+          const selectable = isSlotSelectable(m, returning);
+          const isSelected = selected === m.id;
+          return (
+            <button
+              type="button"
+              key={m.id}
+              onClick={() => handleSlotClick(m)}
+              disabled={!selectable}
+              className={`flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-left text-[13px] last:border-b-0 transition-colors ${
+                isSelected ? "bg-muted" : selectable ? "hover:bg-muted" : ""
+              } ${selectable ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+            >
+              <Avatar name={m.displayName} seed={i} size={22} />
+              <span className="flex-1">{m.displayName}</span>
+              {m.locked ? (
+                <span className="text-xs text-muted-foreground">account</span>
+              ) : (
+                m.claimed && !returning && (
+                  <span className="text-xs text-muted-foreground">taken</span>
+                )
+              )}
+              {isSelected && <span className="text-accent">✓</span>}
+            </button>
+          );
+        })}
+        {!returning && (
           <button
             type="button"
-            key={m.id}
-            onClick={() => setSelected(m.id)}
-            disabled={m.claimed}
-            className={`flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-left text-[13px] last:border-b-0 transition-colors ${
-              selected === m.id ? "bg-muted" : "hover:bg-muted"
-            } ${m.claimed ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+            onClick={() => setSelected(ADD_NEW)}
+            className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-accent transition-colors ${
+              addingNew ? "bg-muted" : "hover:bg-muted"
+            }`}
           >
-            <Avatar name={m.displayName} seed={i} size={22} />
-            <span className="flex-1">{m.displayName}</span>
-            {m.claimed && <span className="text-xs text-muted-foreground">claimed</span>}
-            {selected === m.id && <span className="text-accent">✓</span>}
+            + Add myself…
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setSelected(ADD_NEW)}
-          className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-accent transition-colors ${
-            addingNew ? "bg-muted" : "hover:bg-muted"
-          }`}
-        >
-          + Add myself…
-        </button>
+        )}
       </div>
 
-      {addingNew && (
+      {addingNew && !returning && (
         <input
           name="newName"
           placeholder="Your name"
@@ -76,12 +116,33 @@ export function ShareEntryForm({
         />
       )}
 
+      {returning && (
+        <p className="mt-2.5 text-[12px] text-muted-foreground">
+          Members linked to an account can&apos;t be re-claimed here — sign in to that account instead.
+        </p>
+      )}
+
       <button
         type="submit"
-        className="mt-[18px] h-[38px] w-full cursor-pointer rounded-[6px] bg-accent text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f]"
+        disabled={!canSubmit}
+        className="mt-[18px] h-[38px] w-full rounded-[6px] bg-accent text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Join group
+        {returning
+          ? selectedMember
+            ? `Rejoin as ${selectedMember.displayName}`
+            : "Select your name above"
+          : "Join group"}
       </button>
+
+      {!returning && hasReclaimable && (
+        <button
+          type="button"
+          onClick={handleReturningToggle}
+          className="mt-3 w-full text-center text-[12px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          Returning user? Click here
+        </button>
+      )}
     </form>
   );
 }
