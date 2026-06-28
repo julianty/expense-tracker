@@ -28,9 +28,9 @@ export default async function ActivityPage({
   const meIsAdmin = await isAdmin(id, me);
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Link href={`/groups/${id}`} className="text-xs text-muted-foreground hover:text-foreground">
             ← Back to {group.name}
           </Link>

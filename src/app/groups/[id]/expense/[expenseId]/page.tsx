@@ -36,16 +36,16 @@ export default async function ExpenseDetailPage({
   const receiptUrl = expense.imageUrl ? await getSignedReceiptUrl(expense.imageUrl) : null;
 
   return (
-    <div className="mx-auto w-full max-w-[460px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[460px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Link href={`/groups/${id}`} className="text-xs text-muted-foreground hover:text-foreground">
             ← Back to {group.name}
           </Link>
 
-          <div className="mb-0.5 mt-3 flex items-baseline justify-between">
-            <div className="text-xl font-medium">{expense.description}</div>
-            <div className="text-xl font-medium tnum">{formatCents(total, group.baseCurrency)}</div>
+          <div className="mb-0.5 mt-3 flex items-baseline justify-between gap-3">
+            <div className="min-w-0 truncate text-xl font-medium">{expense.description}</div>
+            <div className="shrink-0 text-xl font-medium tnum">{formatCents(total, group.baseCurrency)}</div>
           </div>
           <div className="text-[13px] text-muted-foreground">{formatLongDate(expense.dateISO)}</div>
           {expense.currency !== group.baseCurrency && (
@@ -105,7 +105,7 @@ export default async function ExpenseDetailPage({
             </div>
           )}
 
-          <div className="flex justify-end gap-2.5 border-t border-border pt-[18px]">
+          <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-[18px]">
             <LinkButton
               href={`/groups/${id}/expense/new?edit=${expense.id}`}
               variant="outline"

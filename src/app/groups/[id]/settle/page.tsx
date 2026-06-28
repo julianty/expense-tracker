@@ -25,9 +25,9 @@ export default async function SettlePage({
   const idxById = new Map(members.map((m, i) => [m.id, i]));
 
   return (
-    <div className="mx-auto w-full max-w-[460px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[460px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Link href={`/groups/${id}`} className="text-xs text-muted-foreground hover:text-foreground">
             ← Back to {group.name}
           </Link>
@@ -47,13 +47,13 @@ export default async function SettlePage({
               const amount = formatCents(p.amountCents, group.baseCurrency);
               const mayRecord = canSettle(p.fromMemberId, p.toMemberId, me);
               return (
-                <Card key={i} className="flex items-center gap-3 p-4 shadow-none">
-                  <div className="flex items-center gap-2">
+                <Card key={i} className="flex items-center gap-3 p-3 shadow-none sm:p-4">
+                  <div className="flex shrink-0 items-center gap-2">
                     <Avatar name={from?.displayName ?? "?"} seed={idxById.get(p.fromMemberId) ?? 0} />
                     <span className="text-muted-foreground">→</span>
                     <Avatar name={to?.displayName ?? "?"} seed={idxById.get(p.toMemberId) ?? 0} />
                   </div>
-                  <div className="flex-1 text-sm">
+                  <div className="min-w-0 flex-1 text-sm">
                     {from?.displayName} pays {to?.displayName}{" "}
                     <span className="font-medium tnum">{amount}</span>
                   </div>
@@ -68,14 +68,14 @@ export default async function SettlePage({
                       }}
                       triggerLabel="Record"
                       triggerVariant="outline"
-                      triggerClassName="px-3 py-1.5 text-xs"
+                      triggerClassName="shrink-0 px-3 py-1.5 text-xs"
                       title="Record this payment?"
                       description={`${from?.displayName} paid ${to?.displayName} ${amount}. This updates everyone's balances and adds an entry to the activity log.`}
                       confirmLabel="Confirm"
                     />
                   ) : (
                     <span
-                      className="cursor-not-allowed rounded-[6px] border border-border px-3 py-1.5 text-xs text-muted-foreground opacity-60"
+                      className="shrink-0 cursor-not-allowed rounded-[6px] border border-border px-3 py-1.5 text-xs text-muted-foreground opacity-60"
                       title="Only the payer or payee can record this payment"
                     >
                       Record

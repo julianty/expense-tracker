@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decodeJwtClaims, isExpired } from "@/lib/jwt";
 
 /**
- * Gate for /groups/**: allow a valid (or refreshable) Supabase session, or a
- * share-link guest (share_token cookie). Otherwise redirect to /login.
+ * Proxy (formerly "middleware" — renamed in Next 16). Gates /groups/**: allows a
+ * valid (or refreshable) Supabase session, or a share-link guest (share_token
+ * cookie). Otherwise redirects to /login.
  *
  * Edge-safe: no SDK, no Node APIs — just cookie reads + a fetch to GoTrue.
  */
@@ -20,7 +21,7 @@ const COOKIE_OPTS = {
   maxAge: 60 * 60 * 24 * 30,
 };
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const access = req.cookies.get(ACCESS)?.value;
   const claims = access ? decodeJwtClaims(access) : null;
   if (claims && !isExpired(claims)) return NextResponse.next();

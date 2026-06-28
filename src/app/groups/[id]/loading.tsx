@@ -2,7 +2,7 @@ import { Card } from "@/components/ui";
 
 export default function Loading() {
   return (
-    <div className="mx-auto w-full max-w-[500px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[500px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
         <div className="px-6 pb-6 pt-6">
           <div className="flex items-center justify-between">

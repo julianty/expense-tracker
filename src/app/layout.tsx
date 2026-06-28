@@ -11,8 +11,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Splitwise-lite",
-  description: "Split expenses without the spreadsheet.",
+  title: {
+    default: "Splitwise-lite — Split expenses without the spreadsheet",
+    template: "%s · Splitwise-lite",
+  },
+  description:
+    "Track who paid, who owes, and settle up in a tap. Multi-currency, simplified debts, and shareable by link — no account needed for guests.",
+  applicationName: "Splitwise-lite",
 };
 
 export default function RootLayout({

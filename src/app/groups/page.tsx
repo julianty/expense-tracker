@@ -20,9 +20,9 @@ export default async function GroupsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <div className="px-6 pb-5 pt-6">
+        <div className="px-4 pb-5 pt-6 sm:px-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-medium tracking-[-0.01em]">Your groups</h1>
             <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { saveExpenseAction } from "@/app/actions";
 import { CURRENCIES, currencySymbol, formatCents, formatMoneyNumber } from "@/lib/format";
+import { isAllowedReceipt, MAX_RECEIPT_BYTES } from "@/lib/receipts";
 import type { SplitMode } from "@/lib/store";
 
 interface MemberLite {
@@ -60,6 +61,28 @@ export function ExpenseForm({
   const [mode, setMode] = useState<SplitMode>(initial.splitMode ?? "equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>(initial.splitValues ?? {});
   const [receiptName, setReceiptName] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+
+  function onReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setReceiptName(null);
+      setReceiptError(null);
+      return;
+    }
+    const check = isAllowedReceipt(file.type, file.size);
+    if (!check.ok) {
+      // Reject before upload so an oversized phone photo never hits the server.
+      e.target.value = "";
+      setReceiptName(null);
+      setReceiptError(check.reason ?? "Invalid file");
+      return;
+    }
+    setReceiptName(file.name);
+    setReceiptError(null);
+  }
+
+  const maxMb = Math.round(MAX_RECEIPT_BYTES / (1024 * 1024));
 
   const rate = Number(fxRate) || 1;
   const enteredCents = Math.round((Number(amount) || 0) * 100);
@@ -118,7 +141,7 @@ export function ExpenseForm({
     "h-9 w-full rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
 
   return (
-    <form action={saveExpenseAction} className="p-6">
+    <form action={saveExpenseAction} className="p-4 sm:p-6">
       <input type="hidden" name="groupId" value={groupId} />
       {initial.expenseId && <input type="hidden" name="expenseId" value={initial.expenseId} />}
       <input type="hidden" name="splitMode" value={mode} />
@@ -319,16 +342,23 @@ export function ExpenseForm({
           </div>
           <div className="flex-1">
             <label className="mb-1.5 block text-[13px] font-medium">Receipt</label>
-            <label className="flex h-9 cursor-pointer items-center justify-center truncate rounded-[6px] border border-border px-2 text-[13px] text-muted-foreground hover:bg-muted">
+            <label
+              className={`flex h-9 cursor-pointer items-center justify-center truncate rounded-[6px] border px-2 text-[13px] hover:bg-muted ${
+                receiptError ? "border-[#B91C1C] text-owe" : "border-border text-muted-foreground"
+              }`}
+            >
               <span className="truncate">{receiptName ?? "Attach receipt"}</span>
               <input
                 type="file"
                 name="receipt"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => setReceiptName(e.target.files?.[0]?.name ?? null)}
+                onChange={onReceiptChange}
               />
             </label>
+            <p className={`mt-1 text-[11px] ${receiptError ? "text-owe" : "text-muted-foreground"}`}>
+              {receiptError ?? `Images up to ${maxMb} MB`}
+            </p>
           </div>
         </div>
 
@@ -356,7 +386,8 @@ export function ExpenseForm({
           </Link>
           <button
             type="submit"
-            className="cursor-pointer rounded-[6px] bg-accent px-[18px] py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f]"
+            disabled={!!receiptError}
+            className="cursor-pointer rounded-[6px] bg-accent px-[18px] py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:pointer-events-none disabled:opacity-50"
           >
             Save expense
           </button>

@@ -15,9 +15,9 @@ export default function NewGroupPage() {
   const remove = (i: number) => setMembers((m) => m.filter((_, idx) => idx !== i));
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <form action={createGroupAction} className="p-6">
+        <form action={createGroupAction} className="p-4 sm:p-6">
           <Link href="/groups" className="text-xs text-muted-foreground hover:text-foreground">
             ← Back to groups
           </Link>

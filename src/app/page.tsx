@@ -10,10 +10,10 @@ export default async function LandingPage() {
   const demoHref = demo ? `/g/${demo.shareToken}` : "/login";
 
   return (
-    <div className="mx-auto w-full max-w-[920px] px-6 py-6">
+    <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6">
       <Card className="overflow-hidden">
         {/* top nav */}
-        <div className="flex items-center justify-between border-b border-border px-7 py-[18px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-[18px] sm:px-7">
           <div className="text-[17px] font-medium">Splitwise-lite</div>
           <div className="flex items-center gap-2.5">
             <LinkButton href="/login" variant="outline" className="px-3.5 py-2">
@@ -26,9 +26,9 @@ export default async function LandingPage() {
         </div>
 
         {/* hero + preview */}
-        <div className="grid gap-8 px-7 pb-10 pt-11 md:grid-cols-[1fr_300px]">
+        <div className="grid gap-8 px-4 pb-10 pt-11 sm:px-7 md:grid-cols-[1fr_300px]">
           <div>
-            <h1 className="text-[36px] font-medium leading-[1.15] tracking-[-0.02em]">
+            <h1 className="text-[28px] font-medium leading-[1.15] tracking-[-0.02em] sm:text-[36px]">
               Split expenses without the spreadsheet.
             </h1>
             <p className="mt-3.5 max-w-[380px] text-base leading-relaxed text-muted-foreground">

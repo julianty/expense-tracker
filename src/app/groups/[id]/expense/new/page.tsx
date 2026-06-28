@@ -47,7 +47,7 @@ export default async function NewExpensePage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
         <ExpenseForm
           groupId={id}

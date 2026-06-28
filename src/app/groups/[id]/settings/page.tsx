@@ -26,9 +26,9 @@ export default async function GroupSettingsPage({
     "h-9 w-full rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Link href={`/groups/${id}`} className="text-xs text-muted-foreground hover:text-foreground">
             ← Back to {group.name}
           </Link>

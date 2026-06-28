@@ -52,13 +52,13 @@ export default async function GroupDetailPage({
               name={payer?.displayName ?? "?"}
               seed={idxById.get(payer?.id ?? "") ?? 0}
             />
-            <div className="flex-1">
-              <div className="text-sm">{e.description}</div>
-              <div className="mt-px text-xs text-muted-foreground">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm">{e.description}</div>
+              <div className="mt-px truncate text-xs text-muted-foreground">
                 {payer?.displayName} · {formatShortDate(e.dateISO)}
               </div>
             </div>
-            <span className="flex items-baseline gap-1.5 tnum">
+            <span className="flex shrink-0 flex-col items-end leading-tight tnum">
               {e.currency !== group.baseCurrency && (
                 <span className="text-xs text-muted-foreground">
                   {formatCents(Math.round(expenseTotalCents(e) / e.fxRate), e.currency)} →
@@ -109,10 +109,10 @@ export default async function GroupDetailPage({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[500px] px-6 py-8">
+    <div className="mx-auto w-full max-w-[500px] px-4 py-8 sm:px-6">
       <Card className="relative overflow-hidden">
         {/* extra bottom padding so the floating + button never covers content */}
-        <div className="px-6 pb-24 pt-6">
+        <div className="px-4 pb-24 pt-6 sm:px-6">
           <Link
             href="/groups"
             className="mb-2 inline-block text-xs text-muted-foreground hover:text-foreground"
@@ -120,14 +120,14 @@ export default async function GroupDetailPage({
             ← Your groups
           </Link>
           {/* header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-medium tracking-[-0.01em]">{group.name}</span>
-              <span className="rounded-[6px] border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-2xl font-medium tracking-[-0.01em]">{group.name}</span>
+              <span className="shrink-0 rounded-[6px] border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
                 {group.baseCurrency}
               </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               <CopyButton value={`/g/${group.shareToken}`} />
               <Link
                 href={`/groups/${id}/settings`}
@@ -145,8 +145,10 @@ export default async function GroupDetailPage({
               {members.map((m, i) => (
                 <div key={m.id} className="flex items-center gap-2.5">
                   <Avatar name={m.displayName} seed={i} />
-                  <span className="flex-1 text-sm">{m.displayName}</span>
-                  <BalanceChip balanceCents={balances.get(m.id) ?? 0} currency={group.baseCurrency} />
+                  <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
+                  <span className="shrink-0">
+                    <BalanceChip balanceCents={balances.get(m.id) ?? 0} currency={group.baseCurrency} />
+                  </span>
                 </div>
               ))}
             </div>
