@@ -7,7 +7,7 @@ import { createGroupAction } from "@/app/actions";
 import { CURRENCIES } from "@/lib/format";
 
 export default function NewGroupPage() {
-  const [members, setMembers] = useState<string[]>(["Alex", "Bo"]);
+  const [members, setMembers] = useState<string[]>(["", ""]);
   const [simplify, setSimplify] = useState(true);
 
   const setName = (i: number, v: string) =>
@@ -80,7 +80,7 @@ export default function NewGroupPage() {
                       name="memberName"
                       value={name}
                       onChange={(e) => setName(i, e.target.value)}
-                      placeholder="Name"
+                      placeholder={i === 0 ? "Your name" : "Member name"}
                       className="h-9 flex-1 rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                     />
                     <button

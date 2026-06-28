@@ -58,8 +58,15 @@ export default async function GroupDetailPage({
                 {payer?.displayName} · {formatShortDate(e.dateISO)}
               </div>
             </div>
-            <span className="text-sm font-medium tnum">
-              {formatCents(expenseTotalCents(e), group.baseCurrency)}
+            <span className="flex items-baseline gap-1.5 tnum">
+              {e.currency !== group.baseCurrency && (
+                <span className="text-xs text-muted-foreground">
+                  {formatCents(Math.round(expenseTotalCents(e) / e.fxRate), e.currency)} →
+                </span>
+              )}
+              <span className="text-sm font-medium">
+                {formatCents(expenseTotalCents(e), group.baseCurrency)}
+              </span>
             </span>
           </Link>
         );

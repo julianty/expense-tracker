@@ -2,7 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, Button, Card, Separator } from "@/components/ui";
 import { ConfirmSubmit, CopyButton } from "@/components/client";
-import { deleteGroupAction, regenerateLinkAction, updateGroupAction } from "@/app/actions";
+import {
+  addMemberAction,
+  deleteGroupAction,
+  regenerateLinkAction,
+  updateGroupAction,
+} from "@/app/actions";
 import { getGroup, getMembers } from "@/lib/store";
 import { CURRENCIES } from "@/lib/format";
 
@@ -109,6 +114,20 @@ export default async function GroupSettingsPage({
               </div>
             ))}
           </div>
+
+          {/* add member */}
+          <form action={addMemberAction} className="mt-3 flex items-center gap-2">
+            <input type="hidden" name="groupId" value={id} />
+            <input
+              name="memberName"
+              placeholder="Add a member…"
+              required
+              className="h-9 flex-1 rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            />
+            <Button type="submit" variant="outline" className="px-3 py-1.5 text-[13px]">
+              Add
+            </Button>
+          </form>
 
           <Separator className="my-5" />
 

@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
   addExpense,
+  addMember,
   canRevertExpense,
   canSettle,
   claimSlot,
@@ -180,6 +181,17 @@ export async function updateGroupAction(formData: FormData) {
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/settings`);
   redirect(withFlash(`/groups/${groupId}/settings`, "Settings saved"));
+}
+
+export async function addMemberAction(formData: FormData) {
+  const groupId = String(formData.get("groupId"));
+  const name = String(formData.get("memberName") || "").trim();
+  // Any member of the group can add a new slot.
+  await requireAuth({ groupId });
+  if (name) await addMember(groupId, name);
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/settings`);
+  redirect(withFlash(`/groups/${groupId}/settings`, name ? `Added ${name}` : "Settings saved"));
 }
 
 export async function regenerateLinkAction(formData: FormData) {

@@ -19,11 +19,20 @@ export function currencySymbol(code: string): string {
   return CURRENCY_SYMBOLS[code] ?? code + " ";
 }
 
-/** Format integer cents as a currency string, e.g. 8400 → "$84.00". */
+/** Format integer cents as a currency string, e.g. 8400 → "$84.00", 1000000 → "$10,000.00". */
 export function formatCents(cents: number, currency = "USD"): string {
   const sign = cents < 0 ? "-" : "";
   const abs = Math.abs(cents);
-  return `${sign}${currencySymbol(currency)}${(abs / 100).toFixed(2)}`;
+  const num = (abs / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${sign}${currencySymbol(currency)}${num}`;
+}
+
+/** Format a plain number with thousands separators and exactly 2 decimals. */
+export function formatMoneyNumber(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** Format without sign (caller adds "Owed"/"Owes" labels). */

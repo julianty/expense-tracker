@@ -467,6 +467,14 @@ export async function createGroup(input: CreateGroupInput): Promise<Group> {
   });
 }
 
+/** Add a new (unclaimed) member slot to an existing group. Returns the member id. */
+export async function addMember(groupId: string, displayName: string): Promise<string> {
+  const m = await prisma.groupMember.create({
+    data: { groupId, displayName: displayName.trim() || "Member" },
+  });
+  return m.id;
+}
+
 export async function updateGroup(
   id: string,
   patch: Partial<Pick<Group, "name" | "baseCurrency" | "simplifyDebts">>,

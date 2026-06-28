@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { saveExpenseAction } from "@/app/actions";
-import { CURRENCIES, currencySymbol, formatCents } from "@/lib/format";
+import { CURRENCIES, currencySymbol, formatCents, formatMoneyNumber } from "@/lib/format";
 import type { SplitMode } from "@/lib/store";
 
 interface MemberLite {
@@ -51,6 +51,7 @@ export function ExpenseForm({
   const rateFor = (c: string) => rates[c] ?? 1;
 
   const [amount, setAmount] = useState(initial.amount ?? "");
+  const [amountFocused, setAmountFocused] = useState(false);
   const [currency, setCurrency] = useState(initial.currency ?? baseCurrency);
   const [fxRate, setFxRate] = useState(
     initial.fxRate ?? String(rateFor(initial.currency ?? baseCurrency)),
@@ -152,13 +153,15 @@ export function ExpenseForm({
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-muted-foreground">
                 {currencySymbol(currency)}
               </span>
+              {/* Raw numeric submitted; the visible field shows thousands + 2dp when unfocused. */}
+              <input type="hidden" name="amount" value={amount} />
               <input
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={amountFocused || !amount ? amount : formatMoneyNumber(Number(amount))}
+                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                onFocus={() => setAmountFocused(true)}
+                onBlur={() => setAmountFocused(false)}
                 placeholder="0.00"
                 className="h-11 w-full rounded-[6px] border border-border pl-9 pr-3 text-xl font-medium outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                 required
