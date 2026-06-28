@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getGroupByToken, getMembers } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
 import { ShareEntryForm } from "./share-entry-form";
 
 export default async function ShareLinkEntryPage({
@@ -9,6 +11,12 @@ export default async function ShareLinkEntryPage({
 }) {
   const { token } = await params;
   const group = await getGroupByToken(token);
+
+  // Already in this group (a signed-in member, or a returning guest whose
+  // share_token + member_id cookies still match)? Skip the claim form and go in.
+  if (group && (await getActingMemberId(group.id))) {
+    redirect(`/groups/${group.id}`);
+  }
 
   if (!group) {
     return (
