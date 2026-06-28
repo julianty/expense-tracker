@@ -16,6 +16,7 @@ import {
   addMember,
   canRevertExpense,
   canSettle,
+  ClaimError,
   claimSlot,
   createGroup,
   deleteGroup,
@@ -24,7 +25,9 @@ import {
   isAdmin,
   recordSettlement,
   regenerateShareToken,
+  renameMember,
   revertExpense,
+  unclaimMember,
   updateExpense,
   updateGroup,
   type SplitMode,
@@ -223,7 +226,17 @@ export async function claimSlotAction(formData: FormData) {
   // Link the slot to the account if the visitor is signed in; otherwise they act
   // as a share-token guest (identified by the member_id cookie below).
   const user = await getSessionUser();
-  const claimedId = await claimSlot({ groupId, memberId, newName, userId: user?.id });
+  let claimedId: string;
+  try {
+    claimedId = await claimSlot({ groupId, memberId, newName, userId: user?.id });
+  } catch (e) {
+    // Recoverable claim problems (name taken, account-locked slot) go back to the
+    // entry form with a message instead of crashing.
+    if (e instanceof ClaimError) {
+      redirect(`/g/${token}?error=${encodeURIComponent(e.message)}`);
+    }
+    throw e;
+  }
 
   // Mark the visitor as authorized for this group via the share token, exactly
   // as src/lib/auth.ts expects on the write path.
@@ -233,4 +246,48 @@ export async function claimSlotAction(formData: FormData) {
 
   revalidatePath(`/groups/${groupId}`);
   redirect(withFlash(`/groups/${groupId}`, "Joined group"));
+}
+
+/**
+ * Release a slot's claim. The group admin may release anyone; a member may
+ * release their own slot. The slot and its expense history are kept.
+ */
+export async function unclaimMemberAction(formData: FormData) {
+  const groupId = String(formData.get("groupId"));
+  const memberId = String(formData.get("memberId"));
+  const ctx = await requireAuth({ groupId });
+  if (ctx.memberId !== memberId && !(await isAdmin(groupId, ctx.memberId))) {
+    throw new Error("Not allowed: only the group admin or the member themselves can release a slot.");
+  }
+
+  await unclaimMember(memberId);
+
+  // If a member released their own slot, drop the cookie that tied them to it.
+  if (ctx.memberId === memberId && ctx.isShareLinkActor) {
+    const jar = await cookies();
+    jar.delete("member_id");
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/settings`);
+  redirect(withFlash(`/groups/${groupId}/settings`, "Slot released"));
+}
+
+/** Rename a member slot (admin only) — fixes typos / relabels a slot. */
+export async function renameMemberAction(formData: FormData) {
+  const groupId = String(formData.get("groupId"));
+  const memberId = String(formData.get("memberId"));
+  const name = String(formData.get("displayName") || "").trim();
+  await requireGroupAdmin(groupId);
+  try {
+    await renameMember(memberId, name);
+  } catch (e) {
+    if (e instanceof ClaimError) {
+      redirect(withFlash(`/groups/${groupId}/settings`, e.message));
+    }
+    throw e;
+  }
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/settings`);
+  redirect(withFlash(`/groups/${groupId}/settings`, "Member renamed"));
 }
