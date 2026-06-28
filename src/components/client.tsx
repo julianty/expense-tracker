@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Avatar } from "@/components/ui";
+import { renameMemberAction, unclaimMemberAction } from "@/app/actions";
+import { canReleaseSlot } from "@/lib/membership";
 
 function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -91,6 +94,122 @@ const TRIGGER_STYLES: Record<TriggerVariant, string> = {
   ghost: "text-muted-foreground hover:text-foreground hover:bg-muted",
   destructive: "border border-[#B91C1C] text-[#B91C1C] hover:bg-owe-bg",
 };
+
+// ---------------------------------------------------------------------------
+// Member row — rename (admin) + release/unclaim (admin or self) on settings
+// ---------------------------------------------------------------------------
+
+export interface ManageMember {
+  id: string;
+  displayName: string;
+  claimedEmail?: string;
+  /** True once a guest or account has taken the slot. */
+  taken: boolean;
+  /** True when a real account is linked (releasing requires admin). */
+  accountLinked: boolean;
+}
+
+export function MemberRow({
+  member,
+  groupId,
+  seed,
+  canManage,
+  isSelf,
+}: {
+  member: ManageMember;
+  groupId: string;
+  seed: number;
+  /** Viewer is the group admin. */
+  canManage: boolean;
+  /** Viewer currently acts as this member. */
+  isSelf: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const canRelease = canReleaseSlot({ taken: member.taken, isAdmin: canManage, isSelf });
+
+  const badge = member.accountLinked
+    ? { label: "account", cls: "bg-owed-bg text-owed" }
+    : member.taken
+      ? { label: "guest", cls: "bg-owed-bg text-owed" }
+      : { label: "unclaimed", cls: "bg-muted text-muted-foreground" };
+
+  if (editing) {
+    return (
+      <form
+        action={renameMemberAction}
+        className="flex items-center gap-2"
+        onSubmit={() => setEditing(false)}
+      >
+        <input type="hidden" name="groupId" value={groupId} />
+        <input type="hidden" name="memberId" value={member.id} />
+        <Avatar name={member.displayName} seed={seed} />
+        <input
+          name="displayName"
+          defaultValue={member.displayName}
+          autoFocus
+          required
+          className="h-9 flex-1 rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+        />
+        <button
+          type="submit"
+          className="cursor-pointer rounded-[6px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-foreground hover:bg-[#b06f1f]"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="cursor-pointer px-2 py-1.5 text-[13px] text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar name={member.displayName} seed={seed} />
+      <div className="flex-1">
+        <div className="text-sm">{member.displayName}</div>
+        {member.claimedEmail && (
+          <div className="text-xs text-muted-foreground">{member.claimedEmail}</div>
+        )}
+      </div>
+
+      <span className={cx("rounded-[6px] px-2 py-0.5 text-[11px] font-medium", badge.cls)}>
+        {badge.label}
+      </span>
+
+      {canManage && (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="cursor-pointer rounded-[6px] px-2 py-1 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          Rename
+        </button>
+      )}
+
+      {canRelease && (
+        <ConfirmSubmit
+          action={unclaimMemberAction}
+          fields={{ groupId, memberId: member.id }}
+          triggerLabel={isSelf && !canManage ? "Leave" : "Release"}
+          triggerVariant="ghost"
+          triggerClassName="px-2 py-1 text-[12px]"
+          title={isSelf && !canManage ? "Leave this slot?" : `Release ${member.displayName}?`}
+          description={
+            member.accountLinked
+              ? `This unlinks the account from ${member.displayName}. The slot and its expense history are kept, and it can be claimed again from the share link.`
+              : `This frees up ${member.displayName} so someone else can claim it. The slot and its expense history are kept.`
+          }
+          confirmLabel={isSelf && !canManage ? "Leave" : "Release"}
+        />
+      )}
+    </div>
+  );
+}
 
 export function ConfirmSubmit({
   action,

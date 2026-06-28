@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Avatar, Button, Card, Separator } from "@/components/ui";
-import { ConfirmSubmit, CopyButton } from "@/components/client";
+import { Button, Card, Separator } from "@/components/ui";
+import { ConfirmSubmit, CopyButton, MemberRow } from "@/components/client";
 import {
   addMemberAction,
   deleteGroupAction,
   regenerateLinkAction,
   updateGroupAction,
 } from "@/app/actions";
-import { getGroup, getMembers } from "@/lib/store";
+import { getGroup, getMembers, isAdmin } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
 import { CURRENCIES } from "@/lib/format";
 
 export default async function GroupSettingsPage({
@@ -20,6 +21,8 @@ export default async function GroupSettingsPage({
   const group = await getGroup(id);
   if (!group) notFound();
   const members = await getMembers(id);
+  const actingMemberId = await getActingMemberId(id);
+  const canManage = await isAdmin(id, actingMemberId);
   const shareDisplay = `app.split/g/${group.shareToken}`;
 
   const inputCls =
@@ -94,24 +97,20 @@ export default async function GroupSettingsPage({
           <div className="mb-3 text-[13px] font-medium">Members</div>
           <div className="flex flex-col gap-3">
             {members.map((m, i) => (
-              <div key={m.id} className="flex items-center gap-2.5">
-                <Avatar name={m.displayName} seed={i} />
-                <div className="flex-1">
-                  <div className="text-sm">{m.displayName}</div>
-                  {m.claimedEmail && (
-                    <div className="text-xs text-muted-foreground">{m.claimedEmail}</div>
-                  )}
-                </div>
-                {m.claimedEmail ? (
-                  <span className="rounded-[6px] bg-owed-bg px-2 py-0.5 text-[11px] font-medium text-owed">
-                    claimed
-                  </span>
-                ) : (
-                  <span className="rounded-[6px] bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    unclaimed
-                  </span>
-                )}
-              </div>
+              <MemberRow
+                key={m.id}
+                seed={i}
+                groupId={id}
+                canManage={canManage}
+                isSelf={m.id === actingMemberId}
+                member={{
+                  id: m.id,
+                  displayName: m.displayName,
+                  claimedEmail: m.claimedEmail,
+                  taken: !!m.claimedAtISO || m.accountLinked,
+                  accountLinked: m.accountLinked,
+                }}
+              />
             ))}
           </div>
 
