@@ -1,39 +1,22 @@
 /**
  * Server-action auth gate.
  *
- * Architecture rule: ALL writes go through Next.js server actions.
- * Each action validates EITHER:
- *   1. A real Supabase session (email+password login), OR
- *   2. A group share-token (/g/{token} link)
+ * Every mutating server action resolves the acting GroupMember via EITHER:
+ *   1. a real Supabase session (REST/JWT — see ./session), OR
+ *   2. a group share-token cookie (+ the claimed member_id cookie).
  *
- * On success, resolves to an AuthContext with the acting GroupMember.
- * On failure, throws an AuthError (action returns early).
- *
- * Usage:
- *   export async function createExpenseAction(groupId: string, ...) {
- *     const ctx = await requireAuth({ groupId });
- *     // ctx.member is the acting GroupMember slot
- *   }
+ * On success → AuthContext with the acting member. On failure → AuthError.
  */
 
-"use server";
-
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { prisma } from "@/lib/prisma";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { getSessionUser } from "@/lib/session";
 
 export interface AuthContext {
-  /** The GroupMember slot that is acting (may be unclaimed) */
   memberId: string;
   memberDisplayName: string;
   groupId: string;
-  /** True if the actor is identified via a share-link (not a real account) */
   isShareLinkActor: boolean;
-  /** Supabase user id (null for share-link actors) */
   userId: string | null;
 }
 
@@ -51,168 +34,80 @@ export class AuthError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Auth gate
-// ---------------------------------------------------------------------------
-
 interface RequireAuthOptions {
-  /** The group this action operates on */
   groupId: string;
-  /**
-   * Optional: if provided, verify the acting member is in this group.
-   * If not provided, the session user's first member slot in the group is used.
-   */
+  /** Optional explicit member slot; otherwise resolved from the session/token. */
   memberId?: string;
 }
 
-/**
- * Resolve the acting member for a server action.
- * Call at the top of every mutating server action.
- *
- * @throws AuthError if authentication or authorization fails.
- */
+/** Resolve the acting member for a mutating action. Throws AuthError on failure. */
 export async function requireAuth(opts: RequireAuthOptions): Promise<AuthContext> {
   const { groupId } = opts;
 
-  // -- 1. Check Supabase session -----------------------------------------
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    // Supabase's new "publishable key" is the drop-in replacement for the legacy
-    // anon key; accept either name.
-    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) => {
-          for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options);
-          }
-        },
-      },
-    },
-  );
+  const group = await prisma.group.findUnique({ where: { id: groupId }, select: { id: true, shareToken: true } });
+  if (!group) throw new AuthError(`Group ${groupId} not found`, "GROUP_NOT_FOUND");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // 1. Real session
+  const user = await getSessionUser();
   if (user) {
-    return resolveSessionActor({ groupId, userId: user.id, memberId: opts.memberId });
+    const member = opts.memberId
+      ? await prisma.groupMember.findFirst({ where: { id: opts.memberId, groupId, claimedByUserId: user.id } })
+      : await prisma.groupMember.findFirst({ where: { groupId, claimedByUserId: user.id }, orderBy: { createdAt: "asc" } });
+    if (!member) {
+      throw new AuthError("You're not a member of this group.", "UNAUTHORIZED");
+    }
+    return {
+      memberId: member.id,
+      memberDisplayName: member.displayName,
+      groupId,
+      isShareLinkActor: false,
+      userId: user.id,
+    };
   }
 
-  // -- 2. Fall back to share-token ----------------------------------------
-  const shareToken = cookieStore.get("share_token")?.value;
-  if (shareToken) {
-    return resolveShareTokenActor({ groupId, shareToken, memberId: opts.memberId });
+  // 2. Share-token actor
+  const jar = await cookies();
+  const shareToken = jar.get("share_token")?.value;
+  const memberId = opts.memberId ?? jar.get("member_id")?.value;
+  if (shareToken && shareToken === group.shareToken && memberId) {
+    const member = await prisma.groupMember.findFirst({ where: { id: memberId, groupId } });
+    if (!member) throw new AuthError("Member slot not found in this group.", "MEMBER_NOT_FOUND");
+    return {
+      memberId: member.id,
+      memberDisplayName: member.displayName,
+      groupId,
+      isShareLinkActor: true,
+      userId: member.claimedByUserId ?? null,
+    };
   }
 
-  throw new AuthError("Not authenticated — please sign in or use a share link.", "UNAUTHENTICATED");
+  throw new AuthError("Sign in or open this group's share link to continue.", "UNAUTHENTICATED");
 }
 
-// ---------------------------------------------------------------------------
-// Internal resolvers
-// ---------------------------------------------------------------------------
-
-async function resolveSessionActor(opts: {
-  groupId: string;
-  userId: string;
-  memberId?: string;
-}): Promise<AuthContext> {
-  const { groupId, userId, memberId } = opts;
-
-  // Verify group exists
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AuthError(`Group ${groupId} not found`, "GROUP_NOT_FOUND");
-
-  // Resolve the acting member slot
-  const member = memberId
-    ? await prisma.groupMember.findFirst({
-        where: { id: memberId, groupId, claimedByUserId: userId },
-      })
-    : await prisma.groupMember.findFirst({
-        where: { groupId, claimedByUserId: userId },
-        orderBy: { createdAt: "asc" },
-      });
-
-  if (!member) {
-    throw new AuthError(
-      `User ${userId} has no claimed member slot in group ${groupId}`,
-      "UNAUTHORIZED",
-    );
+/**
+ * Non-throwing variant for read/render: returns the acting member's id, or "".
+ * Used by pages to decide "you"/permission affordances without erroring.
+ */
+export async function getActingMemberId(groupId: string): Promise<string> {
+  const user = await getSessionUser();
+  if (user) {
+    const member = await prisma.groupMember.findFirst({
+      where: { groupId, claimedByUserId: user.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    return member?.id ?? "";
   }
 
-  return {
-    memberId: member.id,
-    memberDisplayName: member.displayName,
-    groupId,
-    isShareLinkActor: false,
-    userId,
-  };
-}
-
-async function resolveShareTokenActor(opts: {
-  groupId: string;
-  shareToken: string;
-  memberId?: string;
-}): Promise<AuthContext> {
-  const { groupId, shareToken, memberId } = opts;
-
-  // Validate the share token belongs to this group
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AuthError(`Group ${groupId} not found`, "GROUP_NOT_FOUND");
-  if (group.shareToken !== shareToken) {
-    throw new AuthError("Invalid share token for this group", "UNAUTHORIZED");
+  const jar = await cookies();
+  const shareToken = jar.get("share_token")?.value;
+  const memberId = jar.get("member_id")?.value;
+  if (shareToken && memberId) {
+    const group = await prisma.group.findUnique({ where: { id: groupId }, select: { shareToken: true } });
+    if (group?.shareToken === shareToken) {
+      const member = await prisma.groupMember.findFirst({ where: { id: memberId, groupId }, select: { id: true } });
+      return member?.id ?? "";
+    }
   }
-
-  // A share-link actor must explicitly provide a memberId (set when they claim a slot)
-  if (!memberId) {
-    throw new AuthError(
-      "Share-link actors must have a claimed member slot. " +
-      "Visit /g/{token}/claim to claim a slot first.",
-      "UNAUTHORIZED",
-    );
-  }
-
-  const member = await prisma.groupMember.findFirst({
-    where: { id: memberId, groupId },
-  });
-  if (!member) {
-    throw new AuthError(`Member ${memberId} not found in group ${groupId}`, "MEMBER_NOT_FOUND");
-  }
-
-  return {
-    memberId: member.id,
-    memberDisplayName: member.displayName,
-    groupId,
-    isShareLinkActor: true,
-    userId: member.claimedByUserId ?? null,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Audit log helper — call inside every mutating action
-// ---------------------------------------------------------------------------
-
-export async function writeAuditLog(opts: {
-  groupId: string;
-  actorMemberId: string;
-  action: string;
-  entityType?: string;
-  entityId?: string;
-  beforeJson?: object;
-  afterJson?: object;
-}) {
-  await prisma.auditLog.create({
-    data: {
-      groupId: opts.groupId,
-      actorMemberId: opts.actorMemberId,
-      action: opts.action,
-      entityType: opts.entityType,
-      entityId: opts.entityId,
-      beforeJson: opts.beforeJson ?? undefined,
-      afterJson: opts.afterJson ?? undefined,
-    },
-  });
+  return "";
 }

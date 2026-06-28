@@ -6,6 +6,8 @@ export default async function LandingPage() {
   const demo = await getGroup("tahoe");
   const members = demo ? await getMembers(demo.id) : [];
   const balances = demo ? await getBalances(demo.id) : new Map<string, number>();
+  // Demo is reached via its share link so guests pass the auth gate.
+  const demoHref = demo ? `/g/${demo.shareToken}` : "/login";
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-6 py-6">
@@ -17,7 +19,7 @@ export default async function LandingPage() {
             <LinkButton href="/login" variant="outline" className="px-3.5 py-2">
               Sign in
             </LinkButton>
-            <LinkButton href="/groups" className="px-3.5 py-2">
+            <LinkButton href={demoHref} className="px-3.5 py-2">
               Try the demo
             </LinkButton>
           </div>
@@ -34,7 +36,7 @@ export default async function LandingPage() {
               shareable by link — no account needed for guests.
             </p>
             <div className="mt-6 flex gap-2.5">
-              <LinkButton href="/groups" className="px-[18px] py-2.5">
+              <LinkButton href={demoHref} className="px-[18px] py-2.5">
                 Try the demo
               </LinkButton>
               <LinkButton href="/login" variant="outline" className="px-[18px] py-2.5">
@@ -45,7 +47,7 @@ export default async function LandingPage() {
 
           {/* demo preview card */}
           {demo && (
-            <Link href={`/groups/${demo.id}`}>
+            <Link href={demoHref}>
               <Card className="relative p-4 transition-shadow hover:shadow-md">
                 <span className="absolute right-3 top-3 rounded-[6px] bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   demo

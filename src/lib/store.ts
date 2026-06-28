@@ -5,10 +5,9 @@
  * and simplified payments are always DERIVED here from the stored zero-sum
  * `ExpenseShare` rows (never stored), exactly as the architecture requires.
  *
- * Persistence-first note: real Supabase auth isn't wired yet, so the "acting
- * member" is still resolved with `currentMemberId` (the first slot of a group).
- * Swap that for `requireAuth()` (src/lib/auth.ts) when auth lands — nothing else
- * in this module needs to change.
+ * The acting member is resolved by the auth gate (src/lib/auth.ts:
+ * `requireAuth` for writes, `getActingMemberId` for reads) — via a real Supabase
+ * session or a group share-token.
  */
 
 import { prisma } from "./prisma";
@@ -138,24 +137,18 @@ const EXPENSE_INCLUDE = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Acting member (persistence-first stand-in for the auth gate)
-// ---------------------------------------------------------------------------
-
-export async function currentMemberId(groupId: string): Promise<string> {
-  const m = await prisma.groupMember.findFirst({
-    where: { groupId },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  return m?.id ?? "";
-}
-
-// ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 
-export async function getGroups(): Promise<Group[]> {
-  return prisma.group.findMany({ orderBy: { createdAt: "asc" } });
+/** All groups, or (when userId given) just the ones the user belongs to or created. */
+export async function getGroups(userId?: string): Promise<Group[]> {
+  if (!userId) return prisma.group.findMany({ orderBy: { createdAt: "asc" } });
+  return prisma.group.findMany({
+    where: {
+      OR: [{ createdByUserId: userId }, { members: { some: { claimedByUserId: userId } } }],
+    },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 export async function getGroup(id: string): Promise<Group | undefined> {
@@ -454,6 +447,8 @@ export interface CreateGroupInput {
 
 export async function createGroup(input: CreateGroupInput): Promise<Group> {
   const names = input.memberNames.map((n) => n.trim()).filter(Boolean);
+  // Guarantee the creator has a slot to act through.
+  if (names.length === 0) names.push("You");
   return prisma.group.create({
     data: {
       name: input.name.trim() || "Untitled group",
@@ -461,7 +456,13 @@ export async function createGroup(input: CreateGroupInput): Promise<Group> {
       shareToken: randomToken(),
       simplifyDebts: input.simplifyDebts,
       createdByUserId: input.createdByUserId ?? null,
-      members: { create: names.map((displayName) => ({ displayName })) },
+      // The creator claims the first slot so they're a member of their own group.
+      members: {
+        create: names.map((displayName, i) => ({
+          displayName,
+          claimedByUserId: i === 0 ? input.createdByUserId ?? null : null,
+        })),
+      },
     },
   });
 }
@@ -488,18 +489,31 @@ export async function deleteGroup(id: string): Promise<void> {
   await prisma.group.delete({ where: { id } });
 }
 
-/** Claim an existing slot, or create a new one. Returns the acting memberId. */
+/**
+ * Claim an existing slot, or create a new one. Returns the acting memberId.
+ * When `userId` is given (a signed-in visitor), links the slot to that account.
+ */
 export async function claimSlot(opts: {
   groupId: string;
   memberId?: string;
   newName?: string;
+  userId?: string | null;
 }): Promise<string> {
   if (opts.memberId) {
     const m = await prisma.groupMember.findUnique({ where: { id: opts.memberId }, select: { id: true } });
-    if (m) return m.id;
+    if (m) {
+      if (opts.userId) {
+        await prisma.groupMember.update({ where: { id: m.id }, data: { claimedByUserId: opts.userId } });
+      }
+      return m.id;
+    }
   }
   const m = await prisma.groupMember.create({
-    data: { groupId: opts.groupId, displayName: opts.newName?.trim() || "Guest" },
+    data: {
+      groupId: opts.groupId,
+      displayName: opts.newName?.trim() || "Guest",
+      claimedByUserId: opts.userId ?? null,
+    },
   });
   return m.id;
 }

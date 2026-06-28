@@ -3,11 +3,9 @@
 /**
  * Server actions — the single write surface for the app.
  *
- * In production each action would call `requireAuth({ groupId })` from
- * src/lib/auth.ts (valid session OR share token) and write through Prisma. Here
- * they validate input and write to the in-memory demo store, then revalidate the
- * affected paths. The acting member is resolved with `currentMemberId` (the demo
- * stand-in for the auth gate).
+ * Each mutating action resolves the acting member through `requireAuth` (valid
+ * Supabase session OR group share-token) and writes through Prisma. Admin-only
+ * actions additionally check `isAdmin`.
  */
 
 import { revalidatePath } from "next/cache";
@@ -19,10 +17,10 @@ import {
   canSettle,
   claimSlot,
   createGroup,
-  currentMemberId,
   deleteGroup,
   getGroup,
   getMembers,
+  isAdmin,
   recordSettlement,
   regenerateShareToken,
   revertExpense,
@@ -30,6 +28,8 @@ import {
   updateGroup,
   type SplitMode,
 } from "@/lib/store";
+import { requireAuth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 import { rateToBase } from "@/lib/fx";
 import { resolveParticipants, toCents } from "@/lib/splits";
 import { uploadReceipt } from "@/lib/storage";
@@ -75,7 +75,7 @@ export async function saveExpenseAction(formData: FormData) {
     imageUrl = (await uploadReceipt(receipt, groupId)) ?? undefined;
   }
 
-  const actorMemberId = await currentMemberId(groupId);
+  const actorMemberId = (await requireAuth({ groupId })).memberId;
   const payload = {
     groupId,
     description,
@@ -101,7 +101,7 @@ export async function saveExpenseAction(formData: FormData) {
 export async function revertExpenseAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const expenseId = String(formData.get("expenseId"));
-  const actorMemberId = await currentMemberId(groupId);
+  const actorMemberId = (await requireAuth({ groupId })).memberId;
 
   // Only the group admin or the member who created the expense may undo it.
   if (!(await canRevertExpense(expenseId, actorMemberId))) {
@@ -122,7 +122,7 @@ export async function recordSettlementAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const fromMemberId = String(formData.get("fromMemberId"));
   const toMemberId = String(formData.get("toMemberId"));
-  const actorMemberId = await currentMemberId(groupId);
+  const actorMemberId = (await requireAuth({ groupId })).memberId;
 
   // Only the two parties involved in the payment may record it.
   if (!canSettle(fromMemberId, toMemberId, actorMemberId)) {
@@ -147,19 +147,31 @@ export async function recordSettlementAction(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 export async function createGroupAction(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
   const memberNames = formData.getAll("memberName").map((v) => String(v));
   const group = await createGroup({
     name: String(formData.get("name") || ""),
     baseCurrency: String(formData.get("baseCurrency") || "USD"),
     simplifyDebts: formData.get("simplifyDebts") === "on",
     memberNames,
+    createdByUserId: user.id,
   });
   revalidatePath("/groups");
   redirect(withFlash(`/groups/${group.id}`, "Group created"));
 }
 
+/** Group settings are admin-only (the member slot that created the group). */
+async function requireGroupAdmin(groupId: string): Promise<void> {
+  const ctx = await requireAuth({ groupId });
+  if (!(await isAdmin(groupId, ctx.memberId))) {
+    throw new Error("Not allowed: only the group admin can change settings.");
+  }
+}
+
 export async function updateGroupAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
+  await requireGroupAdmin(groupId);
   await updateGroup(groupId, {
     name: String(formData.get("name") || "").trim() || undefined,
     baseCurrency: String(formData.get("baseCurrency") || "USD"),
@@ -172,6 +184,7 @@ export async function updateGroupAction(formData: FormData) {
 
 export async function regenerateLinkAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
+  await requireGroupAdmin(groupId);
   await regenerateShareToken(groupId);
   revalidatePath(`/groups/${groupId}/settings`);
   redirect(withFlash(`/groups/${groupId}/settings`, "Share link regenerated"));
@@ -179,6 +192,7 @@ export async function regenerateLinkAction(formData: FormData) {
 
 export async function deleteGroupAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
+  await requireGroupAdmin(groupId);
   await deleteGroup(groupId);
   revalidatePath("/groups");
   redirect(withFlash("/groups", "Group deleted"));
@@ -194,7 +208,10 @@ export async function claimSlotAction(formData: FormData) {
   const memberId = formData.get("memberId") ? String(formData.get("memberId")) : undefined;
   const newName = formData.get("newName") ? String(formData.get("newName")) : undefined;
 
-  const claimedId = await claimSlot({ groupId, memberId, newName });
+  // Link the slot to the account if the visitor is signed in; otherwise they act
+  // as a share-token guest (identified by the member_id cookie below).
+  const user = await getSessionUser();
+  const claimedId = await claimSlot({ groupId, memberId, newName, userId: user?.id });
 
   // Mark the visitor as authorized for this group via the share token, exactly
   // as src/lib/auth.ts expects on the write path.

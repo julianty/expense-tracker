@@ -3,14 +3,8 @@ import { notFound } from "next/navigation";
 import { Avatar, Card } from "@/components/ui";
 import { ConfirmSubmit } from "@/components/client";
 import { revertExpenseAction } from "@/app/actions";
-import {
-  currentMemberId,
-  getAudit,
-  getExpenses,
-  getGroup,
-  getMembers,
-  isAdmin,
-} from "@/lib/store";
+import { getAudit, getExpenses, getGroup, getMembers, isAdmin } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
 import { formatCents, formatDateTime } from "@/lib/format";
 
 export default async function ActivityPage({
@@ -24,7 +18,7 @@ export default async function ActivityPage({
 
   const [audit, me, members, liveExpenses] = await Promise.all([
     getAudit(id),
-    currentMemberId(id),
+    getActingMemberId(id),
     getMembers(id),
     getExpenses(id),
   ]);

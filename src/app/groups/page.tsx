@@ -1,14 +1,21 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AvatarStack, BalanceChip, Card, LinkButton } from "@/components/ui";
-import { currentMemberId, getBalances, getGroups, getMembers } from "@/lib/store";
+import { getBalances, getGroups, getMembers } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
+import { signOutAction } from "@/app/auth-actions";
 
 export default async function GroupsPage() {
-  const groups = await getGroups();
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+
+  const groups = await getGroups(user.id);
   const rows = await Promise.all(
     groups.map(async (g) => ({
       group: g,
       members: await getMembers(g.id),
-      youBalance: (await getBalances(g.id)).get(await currentMemberId(g.id)) ?? 0,
+      youBalance: (await getBalances(g.id)).get(await getActingMemberId(g.id)) ?? 0,
     })),
   );
 
@@ -18,9 +25,20 @@ export default async function GroupsPage() {
         <div className="px-6 pb-5 pt-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-medium tracking-[-0.01em]">Your groups</h1>
-            <LinkButton href="/groups/new" variant="outline" className="px-3 py-1.5 text-[13px]">
-              New group
-            </LinkButton>
+            <div className="flex items-center gap-2">
+              <LinkButton href="/groups/new" variant="outline" className="px-3 py-1.5 text-[13px]">
+                New group
+              </LinkButton>
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="cursor-pointer rounded-[6px] px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title={`Signed in as ${user.email}`}
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
           </div>
 
           {groups.length === 0 ? (

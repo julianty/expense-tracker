@@ -5,12 +5,12 @@ import { ConfirmSubmit } from "@/components/client";
 import { revertExpenseAction } from "@/app/actions";
 import {
   canRevertExpense,
-  currentMemberId,
   expenseTotalCents,
   getExpense,
   getGroup,
   getMembers,
 } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
 import { getSignedReceiptUrl } from "@/lib/storage";
 import { formatCents, formatLongDate } from "@/lib/format";
 
@@ -27,7 +27,7 @@ export default async function ExpenseDetailPage({
   const idxById = new Map(members.map((m, i) => [m.id, i]));
 
   const total = expenseTotalCents(expense);
-  const me = await currentMemberId(id);
+  const me = await getActingMemberId(id);
   const mayUndo = await canRevertExpense(expense.id, me);
   const payer = memberById.get(expense.payments[0]?.memberId);
   // Debtors = participants who aren't the payer (net owed to payer).

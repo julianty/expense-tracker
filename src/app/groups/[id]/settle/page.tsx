@@ -3,13 +3,8 @@ import { notFound } from "next/navigation";
 import { Avatar, Card } from "@/components/ui";
 import { ConfirmSubmit } from "@/components/client";
 import { recordSettlementAction } from "@/app/actions";
-import {
-  canSettle,
-  currentMemberId,
-  getGroup,
-  getMembers,
-  getSimplifiedPayments,
-} from "@/lib/store";
+import { canSettle, getGroup, getMembers, getSimplifiedPayments } from "@/lib/store";
+import { getActingMemberId } from "@/lib/auth";
 import { formatCents } from "@/lib/format";
 
 export default async function SettlePage({
@@ -23,7 +18,7 @@ export default async function SettlePage({
 
   const [payments, me, members] = await Promise.all([
     getSimplifiedPayments(id),
-    currentMemberId(id),
+    getActingMemberId(id),
     getMembers(id),
   ]);
   const memberById = new Map(members.map((m) => [m.id, m]));
