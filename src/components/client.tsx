@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { renameMemberAction, unclaimMemberAction } from "@/app/actions";
 import { canReleaseSlot } from "@/lib/membership";
@@ -83,6 +84,48 @@ export function SubmitButton({
         {pending ? pendingLabel ?? children : children}
       </span>
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Add-expense FAB — opens a small menu to pick a single or itemized expense
+// ---------------------------------------------------------------------------
+
+export function AddExpenseFab({ groupId }: { groupId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="absolute bottom-5 right-5">
+      {open && (
+        <>
+          {/* click-away backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-[62px] right-0 z-50 w-48 overflow-hidden rounded-[10px] border border-border bg-background shadow-lg">
+            <Link
+              href={`/groups/${groupId}/expense/new`}
+              className="block px-3.5 py-2.5 text-sm hover:bg-muted"
+            >
+              Single expense
+            </Link>
+            <Link
+              href={`/groups/${groupId}/expense/itemized`}
+              className="block border-t border-border px-3.5 py-2.5 text-sm hover:bg-muted"
+            >
+              Itemized expense
+            </Link>
+          </div>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Add expense"
+        aria-expanded={open}
+        className="relative z-50 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-accent text-[28px] leading-none text-accent-foreground shadow-lg transition-transform hover:bg-[#b06f1f]"
+        style={{ transform: open ? "rotate(45deg)" : undefined }}
+      >
+        +
+      </button>
+    </div>
   );
 }
 

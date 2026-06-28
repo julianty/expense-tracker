@@ -90,8 +90,10 @@ model Expense {
   /// Exchange rate to group base currency at time of entry (1.0 if same currency)
   fxRate           Decimal   @default(1) @db.Decimal(18, 8)
   imageUrl         String?
-  /// How the split was entered: "equal" | "unequal" | "percent" (for edit prefill)
+  /// How the split was entered: "equal" | "equalExtra" | "unequal" | "percent" (for edit prefill)
   splitMode        String    @default("equal")
+  /// Groups line items entered together as one itemized expense. Null = standalone.
+  batchId          String?
   createdByMemberId String
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -104,6 +106,7 @@ model Expense {
 
   @@index([groupId])
   @@index([groupId, date])
+  @@index([batchId])
 }
 
 // ---------------------------------------------------------------------------

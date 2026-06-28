@@ -64,6 +64,8 @@ export interface Expense {
   fxRate: number;
   imageUrl?: string;
   createdByMemberId: string;
+  /** Set when this expense is one line item of an itemized batch. */
+  batchId?: string;
   /** Who paid, in base-currency cents. Sums to the expense total. */
   payments: PayShare[];
   /** Who owes (gross share), in base-currency cents. Sums to the expense total. */
@@ -117,6 +119,7 @@ type PrismaExpenseWithRels = {
   fxRate: { toString(): string };
   imageUrl: string | null;
   splitMode: string;
+  batchId: string | null;
   createdByMemberId: string;
   deletedAt: Date | null;
   payments: { memberId: string; amountCents: number }[];
@@ -138,6 +141,7 @@ function mapExpense(e: PrismaExpenseWithRels): Expense {
     fxRate: Number(e.fxRate.toString()),
     imageUrl: e.imageUrl ?? undefined,
     createdByMemberId: e.createdByMemberId,
+    batchId: e.batchId ?? undefined,
     payments,
     participants,
     splitMode: (e.splitMode as SplitMode) ?? "equal",
@@ -375,6 +379,59 @@ export async function addExpense(input: ExpenseInput): Promise<Expense> {
     return e;
   });
   return mapExpense(created);
+}
+
+export interface ExpenseBatchInput {
+  groupId: string;
+  actorMemberId: string;
+  /** Label for the whole batch, used in the activity summary. */
+  label: string;
+  /** Each line item; groupId/actorMemberId are taken from the batch. */
+  items: Array<Omit<ExpenseInput, "groupId" | "actorMemberId">>;
+}
+
+/**
+ * Create several line items as one itemized expense: N independent Expense rows
+ * sharing a `batchId`, written in a single transaction with one summarizing
+ * audit entry. Each item keeps its own split, payer, and per-expense history,
+ * so editing/undoing a single line stays a normal per-expense operation.
+ */
+export async function addExpenseBatch(input: ExpenseBatchInput): Promise<void> {
+  const batchId = crypto.randomUUID();
+  await prisma.$transaction(async (tx) => {
+    let grandTotal = 0;
+    for (const item of input.items) {
+      const full: ExpenseInput = { ...item, groupId: input.groupId, actorMemberId: input.actorMemberId };
+      const { total, shares } = netSharesFor(full);
+      grandTotal += total;
+      await tx.expense.create({
+        data: {
+          groupId: input.groupId,
+          description: item.description,
+          note: item.note,
+          date: new Date(item.dateISO),
+          currency: item.currency,
+          fxRate: item.fxRate,
+          splitMode: item.splitMode,
+          batchId,
+          createdByMemberId: input.actorMemberId,
+          payments: { create: [{ memberId: item.payerMemberId, amountCents: total }] },
+          shares: { create: shares.map((s) => ({ memberId: s.memberId, amountCents: s.amountCents })) },
+        },
+      });
+    }
+    const n = input.items.length;
+    await writeAudit(
+      tx,
+      input.groupId,
+      input.actorMemberId,
+      `added ${n} item${n === 1 ? "" : "s"} in '${input.label}'`,
+      "create",
+      grandTotal,
+      "expense",
+      batchId,
+    );
+  });
 }
 
 export async function updateExpense(id: string, input: ExpenseInput): Promise<Expense | undefined> {

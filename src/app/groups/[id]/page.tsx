@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, BalanceChip, Card, LinkButton, Separator } from "@/components/ui";
-import { CopyButton, Tabs } from "@/components/client";
+import { AddExpenseFab, CopyButton, Tabs } from "@/components/client";
 import {
   expenseTotalCents,
   getAudit,
@@ -9,6 +9,7 @@ import {
   getExpenses,
   getGroup,
   getMembers,
+  type Expense,
 } from "@/lib/store";
 import { formatCents, formatShortDate, formatDateTime } from "@/lib/format";
 
@@ -31,6 +32,51 @@ export default async function GroupDetailPage({
   const memberById = new Map(members.map((m) => [m.id, m]));
   const idxById = new Map(members.map((m, i) => [m.id, i]));
 
+  // Inner content shared by standalone rows and the items inside a batch.
+  const expenseRowInner = (e: Expense) => {
+    const payer = memberById.get(e.payments[0]?.memberId);
+    return (
+      <>
+        <Avatar name={payer?.displayName ?? "?"} seed={idxById.get(payer?.id ?? "") ?? 0} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm">{e.description}</div>
+          <div className="mt-px truncate text-xs text-muted-foreground">
+            {payer?.displayName} · {formatShortDate(e.dateISO)}
+          </div>
+        </div>
+        <span className="flex shrink-0 flex-col items-end leading-tight tnum">
+          {e.currency !== group.baseCurrency && (
+            <span className="text-xs text-muted-foreground">
+              {formatCents(Math.round(expenseTotalCents(e) / e.fxRate), e.currency)} →
+            </span>
+          )}
+          <span className="text-sm font-medium">
+            {formatCents(expenseTotalCents(e), group.baseCurrency)}
+          </span>
+        </span>
+      </>
+    );
+  };
+
+  // Collapse line items sharing a batchId into one expandable row (kept at the
+  // position of the batch's first item; standalone expenses render as before).
+  type Row = { kind: "single"; expense: Expense } | { kind: "batch"; batchId: string; items: Expense[] };
+  const rows: Row[] = [];
+  const batchAt = new Map<string, number>();
+  for (const e of expenses) {
+    if (e.batchId) {
+      const at = batchAt.get(e.batchId);
+      if (at == null) {
+        batchAt.set(e.batchId, rows.length);
+        rows.push({ kind: "batch", batchId: e.batchId, items: [e] });
+      } else {
+        (rows[at] as { items: Expense[] }).items.push(e);
+      }
+    } else {
+      rows.push({ kind: "single", expense: e });
+    }
+  }
+
   const expensesTab = (
     <div className="mt-1.5 flex flex-col">
       {expenses.length === 0 && (
@@ -38,37 +84,53 @@ export default async function GroupDetailPage({
           No expenses yet. Add the first one.
         </p>
       )}
-      {expenses.map((e, idx) => {
-        const payer = memberById.get(e.payments[0]?.memberId);
+      {rows.map((row, idx) => {
+        const border = idx < rows.length - 1 ? "border-b border-border" : "";
+        if (row.kind === "single") {
+          return (
+            <Link
+              key={row.expense.id}
+              href={`/groups/${id}/expense/${row.expense.id}`}
+              className={`flex items-center gap-3 py-3.5 ${border}`}
+            >
+              {expenseRowInner(row.expense)}
+            </Link>
+          );
+        }
+        const batchTotal = row.items.reduce((acc, e) => acc + expenseTotalCents(e), 0);
+        const n = row.items.length;
+        const title = row.items.map((e) => e.description).slice(0, 2).join(", ");
         return (
-          <Link
-            key={e.id}
-            href={`/groups/${id}/expense/${e.id}`}
-            className={`flex items-center gap-3 py-3.5 ${
-              idx < expenses.length - 1 ? "border-b border-border" : ""
-            }`}
-          >
-            <Avatar
-              name={payer?.displayName ?? "?"}
-              seed={idxById.get(payer?.id ?? "") ?? 0}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm">{e.description}</div>
-              <div className="mt-px truncate text-xs text-muted-foreground">
-                {payer?.displayName} · {formatShortDate(e.dateISO)}
-              </div>
-            </div>
-            <span className="flex shrink-0 flex-col items-end leading-tight tnum">
-              {e.currency !== group.baseCurrency && (
-                <span className="text-xs text-muted-foreground">
-                  {formatCents(Math.round(expenseTotalCents(e) / e.fxRate), e.currency)} →
-                </span>
-              )}
-              <span className="text-sm font-medium">
-                {formatCents(expenseTotalCents(e), group.baseCurrency)}
+          <details key={row.batchId} className={`group/batch ${border}`}>
+            <summary className="flex cursor-pointer list-none items-center gap-3 py-3.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                {n}
               </span>
-            </span>
-          </Link>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm">{title || "Itemized expense"}</div>
+                <div className="mt-px truncate text-xs text-muted-foreground">
+                  {n} items · {formatShortDate(row.items[0].dateISO)}
+                </div>
+              </div>
+              <span className="shrink-0 text-sm font-medium tnum">
+                {formatCents(batchTotal, group.baseCurrency)}
+              </span>
+              <span className="shrink-0 text-muted-foreground transition-transform group-open/batch:rotate-90">
+                ▸
+              </span>
+            </summary>
+            <div className="ml-4 border-l border-border pl-3">
+              {row.items.map((e) => (
+                <Link
+                  key={e.id}
+                  href={`/groups/${id}/expense/${e.id}`}
+                  className="flex items-center gap-3 py-3"
+                >
+                  {expenseRowInner(e)}
+                </Link>
+              ))}
+            </div>
+          </details>
         );
       })}
     </div>
@@ -169,14 +231,8 @@ export default async function GroupDetailPage({
           </div>
         </div>
 
-        {/* FAB */}
-        <Link
-          href={`/groups/${id}/expense/new`}
-          className="absolute bottom-5 right-5 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-accent text-[28px] leading-none text-accent-foreground shadow-lg transition-colors hover:bg-[#b06f1f]"
-          aria-label="Add expense"
-        >
-          +
-        </Link>
+        {/* FAB → single or itemized expense */}
+        <AddExpenseFab groupId={id} />
       </Card>
     </div>
   );

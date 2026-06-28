@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
   addExpense,
+  addExpenseBatch,
   addMember,
   canRevertExpense,
   canSettle,
@@ -100,6 +101,64 @@ export async function saveExpenseAction(formData: FormData) {
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/activity`);
   redirect(withFlash(`/groups/${groupId}`, editingId ? "Expense updated" : "Expense added"));
+}
+
+/**
+ * Create an itemized expense: several line items submitted together as one
+ * batch. The client serializes the rows into the `items` JSON field; each row's
+ * split is resolved server-side (base currency only — no per-item FX).
+ */
+export async function saveExpenseBatchAction(formData: FormData) {
+  const groupId = String(formData.get("groupId"));
+  const group = await getGroup(groupId);
+  if (!group) redirect("/groups");
+
+  const label = String(formData.get("label") || "").trim() || "Itemized expense";
+  const dateISO = String(formData.get("date") || new Date().toISOString().slice(0, 10));
+
+  let rawItems: Array<{
+    description?: string;
+    amount?: string | number;
+    payerMemberId?: string;
+    splitMode?: string;
+    splitValues?: Record<string, string | number>;
+  }> = [];
+  try {
+    rawItems = JSON.parse(String(formData.get("items") || "[]"));
+  } catch {
+    rawItems = [];
+  }
+
+  const members = await getMembers(groupId);
+  const memberIds = members.map((m) => m.id);
+
+  const items = rawItems
+    .filter((it) => Number(it.amount) > 0)
+    .map((it) => {
+      const mode = String(it.splitMode || "equal") as SplitMode;
+      const payerMemberId = String(it.payerMemberId || memberIds[0]);
+      const rawValues = memberIds.map((id) => Number(it.splitValues?.[id] || 0));
+      const totalBaseCents = toCents(Number(it.amount) || 0);
+      const participants = resolveParticipants(totalBaseCents, memberIds, mode, rawValues, payerMemberId);
+      return {
+        description: String(it.description || "").trim() || "Item",
+        dateISO,
+        currency: group.baseCurrency,
+        fxRate: 1,
+        payerMemberId,
+        participants,
+        splitMode: mode,
+      };
+    });
+
+  if (items.length === 0) redirect(`/groups/${groupId}/expense/new`);
+
+  const actorMemberId = (await requireAuth({ groupId })).memberId;
+  await addExpenseBatch({ groupId, actorMemberId, label, items });
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/activity`);
+  redirect(withFlash(`/groups/${groupId}`, `Added ${items.length} item${items.length === 1 ? "" : "s"}`));
 }
 
 export async function revertExpenseAction(formData: FormData) {
