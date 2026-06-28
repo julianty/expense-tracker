@@ -4,7 +4,7 @@
  * configured (or the bucket doesn't exist yet), so the app works without them.
  */
 
-import { getServiceClient } from "./supabase";
+import { getStorageClient } from "./supabase";
 import {
   RECEIPTS_BUCKET,
   isAllowedReceipt,
@@ -16,8 +16,8 @@ import {
  * expense's imageUrl), or null if skipped (no key, invalid file, or error).
  */
 export async function uploadReceipt(file: File, groupId: string): Promise<string | null> {
-  const client = getServiceClient();
-  if (!client) return null;
+  const storage = getStorageClient();
+  if (!storage) return null;
 
   const check = isAllowedReceipt(file.type, file.size);
   if (!check.ok) return null;
@@ -25,7 +25,7 @@ export async function uploadReceipt(file: File, groupId: string): Promise<string
   const path = receiptObjectPath(groupId, file.name, file.type);
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error } = await client.storage.from(RECEIPTS_BUCKET).upload(path, buffer, {
+  const { error } = await storage.from(RECEIPTS_BUCKET).upload(path, buffer, {
     contentType: file.type,
     upsert: false,
   });
@@ -41,10 +41,10 @@ export async function getSignedReceiptUrl(
   path: string,
   expiresInSeconds = 3600,
 ): Promise<string | null> {
-  const client = getServiceClient();
-  if (!client) return null;
+  const storage = getStorageClient();
+  if (!storage) return null;
 
-  const { data, error } = await client.storage
+  const { data, error } = await storage
     .from(RECEIPTS_BUCKET)
     .createSignedUrl(path, expiresInSeconds);
   if (error) {

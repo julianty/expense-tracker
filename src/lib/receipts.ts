@@ -3,7 +3,7 @@
  * The actual upload/signing lives in `./storage` (server-only).
  */
 
-export const RECEIPTS_BUCKET = "receipts";
+export const RECEIPTS_BUCKET = "receipt";
 
 /** Keep well under the free-tier 50 MB ceiling; receipts are photos. */
 export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
