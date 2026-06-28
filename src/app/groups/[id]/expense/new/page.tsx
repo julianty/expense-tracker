@@ -30,11 +30,20 @@ export default async function NewExpensePage({
     if (e && e.groupId === id) {
       const total = expenseTotalCents(e);
       const splitValues: Record<string, string> = {};
+      // For "equal +", recover each member's surcharge as their gross minus the
+      // equal base — the base is the smallest gross share (a member with no extra).
+      const equalExtraBase =
+        e.splitMode === "equalExtra" && e.participants.length
+          ? Math.min(...e.participants.map((p) => p.amountCents))
+          : 0;
       for (const p of e.participants) {
         if (e.splitMode === "percent") {
           splitValues[p.memberId] = total ? ((p.amountCents / total) * 100).toFixed(1) : "0";
         } else if (e.splitMode === "unequal") {
           splitValues[p.memberId] = (p.amountCents / 100).toFixed(2);
+        } else if (e.splitMode === "equalExtra") {
+          const extra = p.amountCents - equalExtraBase;
+          if (extra > 0) splitValues[p.memberId] = (extra / 100).toFixed(2);
         }
       }
       initial = {

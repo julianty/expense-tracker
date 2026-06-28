@@ -30,6 +30,7 @@ export interface ExpenseFormInitial {
 
 const MODES: Array<{ key: SplitMode; label: string }> = [
   { key: "equal", label: "Equal" },
+  { key: "equalExtra", label: "Equal +" },
   { key: "unequal", label: "Unequal" },
   { key: "percent", label: "%" },
 ];
@@ -104,6 +105,14 @@ export function ExpenseForm({
       const payerIdx = Math.max(0, ids.indexOf(payerId));
       return ids.map((id, i) => ({ id, cents: base + (i === payerIdx ? remainder : 0) }));
     }
+    if (mode === "equalExtra") {
+      const extras = ids.map((id) => Math.round((Number(splitValues[id]) || 0) * 100));
+      const pool = baseTotalCents - extras.reduce((a, b) => a + b, 0);
+      const base = Math.trunc(pool / ids.length);
+      const remainder = pool - base * ids.length;
+      const payerIdx = Math.max(0, ids.indexOf(payerId));
+      return ids.map((id, i) => ({ id, cents: base + extras[i] + (i === payerIdx ? remainder : 0) }));
+    }
     if (mode === "percent") {
       return ids.map((id) => ({
         id,
@@ -118,9 +127,19 @@ export function ExpenseForm({
   const leftoverCents = baseTotalCents - allocated;
   const percentSum = members.reduce((acc, m) => acc + (Number(splitValues[m.id]) || 0), 0);
 
+  const extrasCents = members.reduce(
+    (acc, m) => acc + Math.round((Number(splitValues[m.id]) || 0) * 100),
+    0,
+  );
+
   let balanceState: { ok: boolean; label: string };
   if (mode === "equal") {
     balanceState = { ok: true, label: "Splits balance ✓" };
+  } else if (mode === "equalExtra") {
+    const ok = extrasCents <= baseTotalCents;
+    balanceState = ok
+      ? { ok: true, label: "Splits balance ✓" }
+      : { ok: false, label: "Extras exceed total" };
   } else if (mode === "percent") {
     const ok = Math.abs(percentSum - 100) < 0.001;
     balanceState = ok
@@ -270,6 +289,30 @@ export function ExpenseForm({
                     <span className="text-muted-foreground tnum">
                       {formatCents(cents, baseCurrency)}
                     </span>
+                  )}
+                  {mode === "equalExtra" && (
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-28">
+                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          +{currencySymbol(baseCurrency)}
+                        </span>
+                        <input
+                          name={`split-${m.id}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={splitValues[m.id] ?? ""}
+                          onChange={(e) =>
+                            setSplitValues((v) => ({ ...v, [m.id]: e.target.value }))
+                          }
+                          placeholder="0.00"
+                          className="h-8 w-full rounded-[6px] border border-border pl-9 pr-2 text-sm outline-none focus:border-accent"
+                        />
+                      </div>
+                      <span className="w-20 text-right text-muted-foreground tnum">
+                        {formatCents(cents, baseCurrency)}
+                      </span>
+                    </div>
                   )}
                   {mode === "unequal" && (
                     <div className="relative w-28">

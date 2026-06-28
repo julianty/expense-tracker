@@ -27,6 +27,38 @@ describe("resolveParticipants — equal", () => {
   });
 });
 
+describe("resolveParticipants — equalExtra", () => {
+  it("splits the rest equally after per-member surcharges", () => {
+    // $120 total, 4 people, Dana adds a $20 surcharge → 25 / 25 / 25 / 45.
+    const four = ["a", "b", "c", "d"];
+    const out = resolveParticipants(12000, four, "equalExtra", [0, 0, 0, 20], "a");
+    expect(out.map((p) => p.amountCents)).toEqual([2500, 2500, 2500, 4500]);
+    expect(out.reduce((a, p) => a + p.amountCents, 0)).toBe(12000);
+  });
+
+  it("behaves like equal when there are no extras", () => {
+    const out = resolveParticipants(8400, ids, "equalExtra", [], "alex");
+    expect(out.map((p) => p.amountCents)).toEqual([2800, 2800, 2800]);
+  });
+
+  it("gives the leftover penny on the equal pool to the payer", () => {
+    // pool = 5630 - 0 extras = 5630; 5630/3 = 1876 r 2 → cam (payer) +2.
+    const out = resolveParticipants(5630, ids, "equalExtra", [0, 0, 0], "cam");
+    const byId = Object.fromEntries(out.map((p) => [p.memberId, p.amountCents]));
+    expect(byId).toEqual({ alex: 1876, bo: 1876, cam: 1878 });
+    expect(out.reduce((a, p) => a + p.amountCents, 0)).toBe(5630);
+  });
+
+  it("round-trips: gross minus min(gross) recovers the surcharges", () => {
+    const four = ["a", "b", "c", "d"];
+    const out = resolveParticipants(12000, four, "equalExtra", [0, 5, 0, 20], "a");
+    const amounts = out.map((p) => p.amountCents);
+    const base = Math.min(...amounts);
+    const extras = out.map((p) => (p.amountCents - base) / 100);
+    expect(extras).toEqual([0, 5, 0, 20]);
+  });
+});
+
 describe("resolveParticipants — percent", () => {
   it("allocates by percentage", () => {
     const out = resolveParticipants(10000, ids, "percent", [50, 25, 25], "alex");

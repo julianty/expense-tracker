@@ -21,9 +21,11 @@ export function toCents(dollars: number): number {
 /**
  * Resolve a split into the gross amount each member owes (summing to the total).
  *
- * - equal:   ignores rawValues; divides evenly, remainder penny to the payer.
- * - percent: rawValues are percentages; rounding drift goes to the payer.
- * - unequal: rawValues are dollar amounts per member.
+ * - equal:      ignores rawValues; divides evenly, remainder penny to the payer.
+ * - equalExtra: rawValues are per-member surcharges (dollars); the rest of the
+ *               total is split equally, with the remainder penny to the payer.
+ * - percent:    rawValues are percentages; rounding drift goes to the payer.
+ * - unequal:    rawValues are dollar amounts per member.
  */
 export function resolveParticipants(
   totalBaseCents: number,
@@ -40,6 +42,18 @@ export function resolveParticipants(
     return memberIds.map((memberId, i) => ({
       memberId,
       amountCents: base + (i === payerIdx ? remainder : 0),
+    }));
+  }
+
+  if (mode === "equalExtra") {
+    // Each member's surcharge comes off the top; the remaining pool splits equally.
+    const extras = memberIds.map((_, i) => toCents(rawValues[i] || 0));
+    const pool = totalBaseCents - extras.reduce((a, b) => a + b, 0);
+    const base = Math.trunc(pool / memberIds.length);
+    const remainder = pool - base * memberIds.length;
+    return memberIds.map((memberId, i) => ({
+      memberId,
+      amountCents: base + extras[i] + (i === payerIdx ? remainder : 0),
     }));
   }
 

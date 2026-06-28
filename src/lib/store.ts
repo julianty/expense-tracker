@@ -34,7 +34,7 @@ export class ClaimError extends Error {
 // Types (the shapes the UI consumes; mapped from Prisma models)
 // ---------------------------------------------------------------------------
 
-export type SplitMode = "equal" | "unequal" | "percent";
+export type SplitMode = "equal" | "equalExtra" | "unequal" | "percent";
 
 export interface Member {
   id: string;
