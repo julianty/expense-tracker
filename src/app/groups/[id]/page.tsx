@@ -113,12 +113,16 @@ export default async function GroupDetailPage({
       <Card className="relative overflow-hidden">
         {/* extra bottom padding so the floating + button never covers content */}
         <div className="px-6 pb-24 pt-6">
+          <Link
+            href="/groups"
+            className="mb-2 inline-block text-xs text-muted-foreground hover:text-foreground"
+          >
+            ← Your groups
+          </Link>
           {/* header */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
-              <Link href="/groups" className="text-2xl font-medium tracking-[-0.01em] hover:opacity-70">
-                {group.name}
-              </Link>
+              <span className="text-2xl font-medium tracking-[-0.01em]">{group.name}</span>
               <span className="rounded-[6px] border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
                 {group.baseCurrency}
               </span>
