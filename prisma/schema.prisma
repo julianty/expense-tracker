@@ -86,6 +86,8 @@ model Expense {
   /// Exchange rate to group base currency at time of entry (1.0 if same currency)
   fxRate           Decimal   @default(1) @db.Decimal(18, 8)
   imageUrl         String?
+  /// How the split was entered: "equal" | "unequal" | "percent" (for edit prefill)
+  splitMode        String    @default("equal")
   createdByMemberId String
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -168,7 +170,11 @@ model AuditLog {
   id              String    @id @default(cuid())
   groupId         String
   actorMemberId   String
-  action          String    // e.g. "expense.create", "expense.edit", "settlement.create", "expense.revert"
+  action          String    // human-readable summary, e.g. "added 'Dinner'"
+  /// Coarse category for UI styling/filtering: "create" | "edit" | "settle" | "revert"
+  kind            String    @default("create")
+  /// Amount associated with the entry (base-currency cents), for display
+  amountCents     Int?
   entityType      String?   // "expense" | "settlement" | "member"
   entityId        String?
   beforeJson      Json?

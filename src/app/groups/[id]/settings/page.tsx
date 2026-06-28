@@ -12,9 +12,9 @@ export default async function GroupSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const group = getGroup(id);
+  const group = await getGroup(id);
   if (!group) notFound();
-  const members = getMembers(id);
+  const members = await getMembers(id);
   const shareDisplay = `app.split/g/${group.shareToken}`;
 
   const inputCls =

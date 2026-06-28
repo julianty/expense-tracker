@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { saveExpenseAction } from "@/app/actions";
 import { CURRENCIES, currencySymbol, formatCents } from "@/lib/format";
-import { dailyRate } from "@/lib/fx";
 import type { SplitMode } from "@/lib/store";
 
 interface MemberLite {
@@ -38,18 +37,23 @@ export function ExpenseForm({
   groupName,
   baseCurrency,
   members,
+  rates,
   initial = {},
 }: {
   groupId: string;
   groupName: string;
   baseCurrency: string;
   members: MemberLite[];
+  /** Live "base units per 1 unit of currency" map, fetched server-side. */
+  rates: Record<string, number>;
   initial?: ExpenseFormInitial;
 }) {
+  const rateFor = (c: string) => rates[c] ?? 1;
+
   const [amount, setAmount] = useState(initial.amount ?? "");
   const [currency, setCurrency] = useState(initial.currency ?? baseCurrency);
   const [fxRate, setFxRate] = useState(
-    initial.fxRate ?? String(dailyRate(initial.currency ?? baseCurrency, baseCurrency)),
+    initial.fxRate ?? String(rateFor(initial.currency ?? baseCurrency)),
   );
   const [payerId, setPayerId] = useState(initial.payerMemberId ?? members[0]?.id ?? "");
   const [mode, setMode] = useState<SplitMode>(initial.splitMode ?? "equal");
@@ -62,7 +66,7 @@ export function ExpenseForm({
 
   function onCurrencyChange(next: string) {
     setCurrency(next);
-    setFxRate(String(dailyRate(next, baseCurrency)));
+    setFxRate(String(rateFor(next)));
   }
 
   // Per-member base-currency cents to display, by mode.

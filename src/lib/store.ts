@@ -1,27 +1,28 @@
 /**
- * In-memory demo store.
+ * Data layer — Prisma/Supabase.
  *
- * The real app persists through Prisma + Supabase (see prisma/schema.prisma and
- * src/lib/auth.ts). There is no database configured in this environment, so this
- * module stands in for the persistence layer: it holds seeded demo data and runs
- * every balance through the real ledger logic in `./ledger`.
+ * Every read/write goes through Prisma against the Supabase Postgres DB. Balances
+ * and simplified payments are always DERIVED here from the stored zero-sum
+ * `ExpenseShare` rows (never stored), exactly as the architecture requires.
  *
- * Shapes mirror the Prisma models closely, so swapping these functions for
- * Prisma queries later is mechanical. Balances and simplified payments are always
- * DERIVED here (never stored), exactly as the architecture requires.
+ * Persistence-first note: real Supabase auth isn't wired yet, so the "acting
+ * member" is still resolved with `currentMemberId` (the first slot of a group).
+ * Swap that for `requireAuth()` (src/lib/auth.ts) when auth lands — nothing else
+ * in this module needs to change.
  */
 
+import { prisma } from "./prisma";
 import {
   buildExpenseShares,
   computeBalances,
   simplifyDebts,
-  splitEvenly,
   type BalanceMap,
   type Payment,
 } from "./ledger";
+import { reconstructParticipants } from "./splits";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (the shapes the UI consumes; mapped from Prisma models)
 // ---------------------------------------------------------------------------
 
 export type SplitMode = "equal" | "unequal" | "percent";
@@ -46,9 +47,7 @@ export interface Expense {
   description: string;
   note?: string;
   dateISO: string;
-  /** Currency the expense was entered in (may differ from group base). */
   currency: string;
-  /** Rate to base currency at entry time (1 if same currency). */
   fxRate: number;
   imageUrl?: string;
   createdByMemberId: string;
@@ -73,7 +72,6 @@ export interface AuditEntry {
   id: string;
   groupId: string;
   actorMemberId: string;
-  /** Human-readable summary, e.g. "added 'Dinner'". */
   action: string;
   amountCents?: number;
   kind: "create" | "settle" | "revert" | "edit";
@@ -88,208 +86,67 @@ export interface Group {
   baseCurrency: string;
   shareToken: string;
   simplifyDebts: boolean;
-  /** The member slot that owns the group (admin; can revert anyone). */
+  /** Supabase user id that created the group (the admin). Null if created without auth. */
+  createdByUserId: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Mappers
+// ---------------------------------------------------------------------------
+
+type PrismaExpenseWithRels = {
+  id: string;
+  groupId: string;
+  description: string;
+  note: string | null;
+  date: Date;
+  currency: string;
+  fxRate: { toString(): string };
+  imageUrl: string | null;
+  splitMode: string;
   createdByMemberId: string;
-}
+  deletedAt: Date | null;
+  payments: { memberId: string; amountCents: number }[];
+  shares: { memberId: string; amountCents: number }[];
+};
 
-interface DB {
-  groups: Group[];
-  members: Member[];
-  expenses: Expense[];
-  settlements: Settlement[];
-  audit: AuditEntry[];
-  seq: number;
-}
+function mapExpense(e: PrismaExpenseWithRels): Expense {
+  const payments: PayShare[] = e.payments.map((p) => ({ memberId: p.memberId, amountCents: p.amountCents }));
+  // Gross "participants" (what each member owes) = netShare + amountPaid.
+  const participants = reconstructParticipants(e.shares, payments);
 
-// ---------------------------------------------------------------------------
-// Seed
-// ---------------------------------------------------------------------------
-
-function seed(): DB {
-  const db: DB = {
-    groups: [],
-    members: [],
-    expenses: [],
-    settlements: [],
-    audit: [],
-    seq: 1,
+  return {
+    id: e.id,
+    groupId: e.groupId,
+    description: e.description,
+    note: e.note ?? undefined,
+    dateISO: e.date.toISOString(),
+    currency: e.currency,
+    fxRate: Number(e.fxRate.toString()),
+    imageUrl: e.imageUrl ?? undefined,
+    createdByMemberId: e.createdByMemberId,
+    payments,
+    participants,
+    splitMode: (e.splitMode as SplitMode) ?? "equal",
+    deleted: e.deletedAt != null,
   };
-
-  // --- Tahoe trip (the demo / hub group) ---
-  const tahoe: Group = {
-    id: "tahoe",
-    name: "Tahoe trip",
-    baseCurrency: "USD",
-    shareToken: "x7Qa9k2mDt",
-    simplifyDebts: true,
-    createdByMemberId: "m-alex",
-  };
-  db.groups.push(tahoe);
-  db.members.push(
-    { id: "m-alex", groupId: "tahoe", displayName: "Alex", claimedEmail: "alex@example.com" },
-    { id: "m-bo", groupId: "tahoe", displayName: "Bo" },
-    { id: "m-cam", groupId: "tahoe", displayName: "Cam" },
-  );
-
-  const equalParticipants = (groupId: string, total: number, memberIds: string[], payerId: string): PayShare[] => {
-    const payerIdx = Math.max(0, memberIds.indexOf(payerId));
-    const amounts = splitEvenly(total, memberIds.length, payerIdx);
-    return memberIds.map((memberId, i) => ({ memberId, amountCents: amounts[i] }));
-  };
-
-  const tahoeMembers = ["m-alex", "m-bo", "m-cam"];
-  db.expenses.push(
-    {
-      id: "e-dinner",
-      groupId: "tahoe",
-      description: "Dinner",
-      dateISO: "2026-06-14T21:21:00",
-      currency: "USD",
-      fxRate: 1,
-      createdByMemberId: "m-alex",
-      payments: [{ memberId: "m-alex", amountCents: 8400 }],
-      participants: equalParticipants("tahoe", 8400, tahoeMembers, "m-alex"),
-      splitMode: "equal",
-    },
-    {
-      id: "e-lift",
-      groupId: "tahoe",
-      description: "Lift tickets",
-      dateISO: "2026-06-13T11:10:00",
-      currency: "USD",
-      fxRate: 1,
-      createdByMemberId: "m-bo",
-      payments: [{ memberId: "m-bo", amountCents: 21000 }],
-      participants: equalParticipants("tahoe", 21000, tahoeMembers, "m-bo"),
-      splitMode: "equal",
-    },
-    {
-      id: "e-groceries",
-      groupId: "tahoe",
-      description: "Groceries",
-      dateISO: "2026-06-12T17:30:00",
-      currency: "USD",
-      fxRate: 1,
-      createdByMemberId: "m-cam",
-      payments: [{ memberId: "m-cam", amountCents: 5630 }],
-      participants: equalParticipants("tahoe", 5630, tahoeMembers, "m-cam"),
-      splitMode: "equal",
-    },
-  );
-  db.audit.push(
-    {
-      id: "a-1",
-      groupId: "tahoe",
-      actorMemberId: "m-alex",
-      action: "added 'Dinner'",
-      amountCents: 8400,
-      kind: "create",
-      entityType: "expense",
-      entityId: "e-dinner",
-      createdISO: "2026-06-14T21:21:00",
-    },
-    {
-      id: "a-2",
-      groupId: "tahoe",
-      actorMemberId: "m-bo",
-      action: "added 'Lift tickets'",
-      amountCents: 21000,
-      kind: "create",
-      entityType: "expense",
-      entityId: "e-lift",
-      createdISO: "2026-06-13T11:10:00",
-    },
-    {
-      id: "a-3",
-      groupId: "tahoe",
-      actorMemberId: "m-cam",
-      action: "added 'Groceries'",
-      amountCents: 5630,
-      kind: "create",
-      entityType: "expense",
-      entityId: "e-groceries",
-      createdISO: "2026-06-12T17:30:00",
-    },
-  );
-
-  // --- Apartment 4B ---
-  db.groups.push({
-    id: "apt4b",
-    name: "Apartment 4B",
-    baseCurrency: "USD",
-    shareToken: "p3Lm8nQr5w",
-    simplifyDebts: true,
-    createdByMemberId: "m-jo",
-  });
-  const aptMembers = [
-    { id: "m-jo", displayName: "Jo", claimedEmail: "jo@example.com" },
-    { id: "m-mi", displayName: "Mi" },
-    { id: "m-ro", displayName: "Ro" },
-    { id: "m-sky", displayName: "Sky" },
-    { id: "m-tay", displayName: "Tay" },
-  ];
-  for (const m of aptMembers) {
-    db.members.push({ id: m.id, groupId: "apt4b", displayName: m.displayName, claimedEmail: m.claimedEmail });
-  }
-  const aptIds = aptMembers.map((m) => m.id);
-  db.expenses.push({
-    id: "e-rent",
-    groupId: "apt4b",
-    description: "Rent — June",
-    dateISO: "2026-06-01T09:00:00",
-    currency: "USD",
-    fxRate: 1,
-    createdByMemberId: "m-mi",
-    payments: [{ memberId: "m-mi", amountCents: 310000 }],
-    participants: equalParticipants("apt4b", 310000, aptIds, "m-mi"),
-    splitMode: "equal",
-  });
-  db.audit.push({
-    id: "a-4",
-    groupId: "apt4b",
-    actorMemberId: "m-mi",
-    action: "added 'Rent — June'",
-    amountCents: 310000,
-    kind: "create",
-    entityType: "expense",
-    entityId: "e-rent",
-    createdISO: "2026-06-01T09:00:00",
-  });
-
-  // --- Book club (settled, no open balances) ---
-  db.groups.push({
-    id: "bookclub",
-    name: "Book club",
-    baseCurrency: "USD",
-    shareToken: "k9Zt2vBc4x",
-    simplifyDebts: false,
-    createdByMemberId: "m-sam",
-  });
-  db.members.push(
-    { id: "m-sam", groupId: "bookclub", displayName: "Sam", claimedEmail: "sam@example.com" },
-    { id: "m-dee", groupId: "bookclub", displayName: "Dee" },
-  );
-
-  return db;
 }
 
+const EXPENSE_INCLUDE = {
+  payments: { select: { memberId: true, amountCents: true } },
+  shares: { select: { memberId: true, amountCents: true } },
+} as const;
+
 // ---------------------------------------------------------------------------
-// Singleton (survives dev hot-reload)
+// Acting member (persistence-first stand-in for the auth gate)
 // ---------------------------------------------------------------------------
 
-const globalForStore = globalThis as unknown as { __splitStore?: DB };
-const db: DB = (globalForStore.__splitStore ??= seed());
-
-function nextId(prefix: string): string {
-  return `${prefix}-${db.seq++}-${Date.now().toString(36)}`;
-}
-
-/**
- * In the real app the acting member comes from the auth gate (session OR share
- * token). For the demo we treat the first member slot of each group as "you".
- */
-export function currentMemberId(groupId: string): string {
-  const m = db.members.find((x) => x.groupId === groupId);
+export async function currentMemberId(groupId: string): Promise<string> {
+  const m = await prisma.groupMember.findFirst({
+    where: { groupId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
   return m?.id ?? "";
 }
 
@@ -297,106 +154,152 @@ export function currentMemberId(groupId: string): string {
 // Queries
 // ---------------------------------------------------------------------------
 
-export function getGroups(): Group[] {
-  return db.groups;
+export async function getGroups(): Promise<Group[]> {
+  return prisma.group.findMany({ orderBy: { createdAt: "asc" } });
 }
 
-export function getGroup(id: string): Group | undefined {
-  return db.groups.find((g) => g.id === id);
+export async function getGroup(id: string): Promise<Group | undefined> {
+  return (await prisma.group.findUnique({ where: { id } })) ?? undefined;
 }
 
-export function getGroupByToken(token: string): Group | undefined {
-  return db.groups.find((g) => g.shareToken === token);
+export async function getGroupByToken(token: string): Promise<Group | undefined> {
+  return (await prisma.group.findUnique({ where: { shareToken: token } })) ?? undefined;
 }
 
-export function getMembers(groupId: string): Member[] {
-  return db.members.filter((m) => m.groupId === groupId);
+export async function getMembers(groupId: string): Promise<Member[]> {
+  const rows = await prisma.groupMember.findMany({
+    where: { groupId },
+    orderBy: { createdAt: "asc" },
+    include: { claimedBy: { select: { email: true } } },
+  });
+  return rows.map((m) => ({
+    id: m.id,
+    groupId: m.groupId,
+    displayName: m.displayName,
+    claimedEmail: m.claimedBy?.email ?? undefined,
+  }));
 }
 
-export function getMember(id: string): Member | undefined {
-  return db.members.find((m) => m.id === id);
+export async function getMember(id: string): Promise<Member | undefined> {
+  const m = await prisma.groupMember.findUnique({
+    where: { id },
+    include: { claimedBy: { select: { email: true } } },
+  });
+  if (!m) return undefined;
+  return {
+    id: m.id,
+    groupId: m.groupId,
+    displayName: m.displayName,
+    claimedEmail: m.claimedBy?.email ?? undefined,
+  };
 }
 
-/** Stable index of a member within its group — used for avatar colors. */
-export function memberIndex(groupId: string, memberId: string): number {
-  return getMembers(groupId).findIndex((m) => m.id === memberId);
+export async function getExpenses(groupId: string): Promise<Expense[]> {
+  const rows = await prisma.expense.findMany({
+    where: { groupId, deletedAt: null },
+    orderBy: { date: "desc" },
+    include: EXPENSE_INCLUDE,
+  });
+  return rows.map(mapExpense);
 }
 
-export function getExpenses(groupId: string): Expense[] {
-  return db.expenses
-    .filter((e) => e.groupId === groupId && !e.deleted)
-    .sort((a, b) => b.dateISO.localeCompare(a.dateISO));
+export async function getExpense(id: string): Promise<Expense | undefined> {
+  const e = await prisma.expense.findUnique({ where: { id }, include: EXPENSE_INCLUDE });
+  return e ? mapExpense(e) : undefined;
 }
 
-export function getExpense(id: string): Expense | undefined {
-  return db.expenses.find((e) => e.id === id);
-}
-
+/** Pure helper — total = sum of payments. */
 export function expenseTotalCents(e: Expense): number {
   return e.payments.reduce((acc, p) => acc + p.amountCents, 0);
 }
 
-export function getSettlements(groupId: string): Settlement[] {
-  return db.settlements.filter((s) => s.groupId === groupId);
-}
-
-export function getAudit(groupId: string): AuditEntry[] {
-  return db.audit
-    .filter((a) => a.groupId === groupId)
-    .sort((a, b) => b.createdISO.localeCompare(a.createdISO));
-}
-
-/** Net balance per member: positive = owes the group, negative = is owed. */
-export function getBalances(groupId: string): BalanceMap {
-  const expenseRows = getExpenses(groupId).map((e) => ({
-    id: e.id,
-    shares: buildExpenseShares({
-      payerMemberIds: e.payments.map((p) => p.memberId),
-      payerAmountsCents: e.payments.map((p) => p.amountCents),
-      debtorMemberIds: e.participants.map((p) => p.memberId),
-      debtorAmountsCents: e.participants.map((p) => p.amountCents),
-    }),
-  }));
-  const settlementRows = getSettlements(groupId).map((s) => ({
+export async function getSettlements(groupId: string): Promise<Settlement[]> {
+  const rows = await prisma.settlement.findMany({ where: { groupId } });
+  return rows.map((s) => ({
+    id: s.id,
+    groupId: s.groupId,
     fromMemberId: s.fromMemberId,
     toMemberId: s.toMemberId,
     amountCents: s.amountCents,
+    dateISO: s.date.toISOString(),
   }));
+}
 
-  // Ensure every member appears, even at zero balance.
-  const balances = computeBalances(expenseRows, settlementRows);
-  for (const m of getMembers(groupId)) {
-    if (!balances.has(m.id)) balances.set(m.id, 0);
-  }
+export async function getAudit(groupId: string): Promise<AuditEntry[]> {
+  const rows = await prisma.auditLog.findMany({
+    where: { groupId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((a) => ({
+    id: a.id,
+    groupId: a.groupId,
+    actorMemberId: a.actorMemberId,
+    action: a.action,
+    amountCents: a.amountCents ?? undefined,
+    kind: a.kind as AuditEntry["kind"],
+    entityType: (a.entityType as AuditEntry["entityType"]) ?? undefined,
+    entityId: a.entityId ?? undefined,
+    createdISO: a.createdAt.toISOString(),
+  }));
+}
+
+/** Net balance per member: positive = owes the group, negative = is owed. */
+export async function getBalances(groupId: string): Promise<BalanceMap> {
+  const [expenses, settlements, members] = await Promise.all([
+    prisma.expense.findMany({
+      where: { groupId, deletedAt: null },
+      select: { id: true, shares: { select: { memberId: true, amountCents: true } } },
+    }),
+    prisma.settlement.findMany({
+      where: { groupId },
+      select: { fromMemberId: true, toMemberId: true, amountCents: true },
+    }),
+    prisma.groupMember.findMany({ where: { groupId }, select: { id: true } }),
+  ]);
+
+  const balances = computeBalances(
+    expenses.map((e) => ({ id: e.id, shares: e.shares })),
+    settlements,
+  );
+  for (const m of members) if (!balances.has(m.id)) balances.set(m.id, 0);
   return balances;
 }
 
-export function getSimplifiedPayments(groupId: string): Payment[] {
-  return simplifyDebts(getBalances(groupId));
+export async function getSimplifiedPayments(groupId: string): Promise<Payment[]> {
+  return simplifyDebts(await getBalances(groupId));
 }
 
 // ---------------------------------------------------------------------------
 // Permissions
 // ---------------------------------------------------------------------------
 
-/** The group admin is the member slot that created the group. */
-export function isAdmin(groupId: string, memberId: string): boolean {
-  const g = getGroup(groupId);
-  return !!g && !!memberId && g.createdByMemberId === memberId;
+/** Admin = the member slot claimed by the user who created the group. */
+export async function isAdmin(groupId: string, memberId: string): Promise<boolean> {
+  if (!memberId) return false;
+  const [group, member] = await Promise.all([
+    prisma.group.findUnique({ where: { id: groupId }, select: { createdByUserId: true } }),
+    prisma.groupMember.findUnique({ where: { id: memberId }, select: { claimedByUserId: true } }),
+  ]);
+  return (
+    !!group?.createdByUserId &&
+    !!member?.claimedByUserId &&
+    group.createdByUserId === member.claimedByUserId
+  );
 }
 
-/**
- * Who may undo/revert an expense: the group admin, or the member who created it.
- */
-export function canRevertExpense(expenseId: string, memberId: string): boolean {
-  const e = getExpense(expenseId);
-  if (!e || !memberId) return false;
-  return isAdmin(e.groupId, memberId) || e.createdByMemberId === memberId;
+/** Who may undo/revert an expense: the group admin, or the member who created it. */
+export async function canRevertExpense(expenseId: string, memberId: string): Promise<boolean> {
+  if (!memberId) return false;
+  const e = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    select: { groupId: true, createdByMemberId: true },
+  });
+  if (!e) return false;
+  if (e.createdByMemberId === memberId) return true;
+  return isAdmin(e.groupId, memberId);
 }
 
-/**
- * Who may record a settlement: only the two parties involved (payer or payee).
- */
+/** Who may record a settlement: only the two parties involved (payer or payee). */
 export function canSettle(fromMemberId: string, toMemberId: string, memberId: string): boolean {
   return !!memberId && (memberId === fromMemberId || memberId === toMemberId);
 }
@@ -419,76 +322,120 @@ export interface ExpenseInput {
   actorMemberId: string;
 }
 
-export function addExpense(input: ExpenseInput): Expense {
+/** Build the zero-sum net shares stored in the DB from a single payer + gross shares. */
+function netSharesFor(input: ExpenseInput): { total: number; shares: PayShare[] } {
   const total = input.participants.reduce((acc, p) => acc + p.amountCents, 0);
-  const expense: Expense = {
-    id: nextId("e"),
-    groupId: input.groupId,
-    description: input.description,
-    note: input.note,
-    dateISO: input.dateISO,
-    currency: input.currency,
-    fxRate: input.fxRate,
-    createdByMemberId: input.actorMemberId,
-    payments: [{ memberId: input.payerMemberId, amountCents: total }],
-    participants: input.participants,
-    splitMode: input.splitMode,
-  };
-  db.expenses.push(expense);
-  pushAudit(input.groupId, input.actorMemberId, `added '${input.description}'`, "create", total, "expense", expense.id);
-  return expense;
+  const shares = buildExpenseShares({
+    payerMemberIds: [input.payerMemberId],
+    payerAmountsCents: [total],
+    debtorMemberIds: input.participants.map((p) => p.memberId),
+    debtorAmountsCents: input.participants.map((p) => p.amountCents),
+  });
+  return { total, shares };
 }
 
-export function updateExpense(id: string, input: ExpenseInput): Expense | undefined {
-  const e = getExpense(id);
-  if (!e) return undefined;
-  const total = input.participants.reduce((acc, p) => acc + p.amountCents, 0);
-  e.description = input.description;
-  e.note = input.note;
-  e.dateISO = input.dateISO;
-  e.currency = input.currency;
-  e.fxRate = input.fxRate;
-  e.payments = [{ memberId: input.payerMemberId, amountCents: total }];
-  e.participants = input.participants;
-  e.splitMode = input.splitMode;
-  pushAudit(input.groupId, input.actorMemberId, `edited '${input.description}'`, "edit", total, "expense", e.id);
-  return e;
+export async function addExpense(input: ExpenseInput): Promise<Expense> {
+  const { total, shares } = netSharesFor(input);
+  const created = await prisma.$transaction(async (tx) => {
+    const e = await tx.expense.create({
+      data: {
+        groupId: input.groupId,
+        description: input.description,
+        note: input.note,
+        date: new Date(input.dateISO),
+        currency: input.currency,
+        fxRate: input.fxRate,
+        splitMode: input.splitMode,
+        createdByMemberId: input.actorMemberId,
+        payments: { create: [{ memberId: input.payerMemberId, amountCents: total }] },
+        shares: { create: shares.map((s) => ({ memberId: s.memberId, amountCents: s.amountCents })) },
+      },
+      include: EXPENSE_INCLUDE,
+    });
+    await writeAudit(tx, input.groupId, input.actorMemberId, `added '${input.description}'`, "create", total, "expense", e.id);
+    return e;
+  });
+  return mapExpense(created);
 }
 
-export function revertExpense(id: string, actorMemberId: string): void {
-  const e = getExpense(id);
-  if (!e || e.deleted) return;
-  e.deleted = true;
-  pushAudit(
-    e.groupId,
-    actorMemberId,
-    `reverted '${e.description}'`,
-    "revert",
-    expenseTotalCents(e),
-    "expense",
-    e.id,
-  );
+export async function updateExpense(id: string, input: ExpenseInput): Promise<Expense | undefined> {
+  const { total, shares } = netSharesFor(input);
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.expensePayment.deleteMany({ where: { expenseId: id } });
+    await tx.expenseShare.deleteMany({ where: { expenseId: id } });
+    const e = await tx.expense.update({
+      where: { id },
+      data: {
+        description: input.description,
+        note: input.note,
+        date: new Date(input.dateISO),
+        currency: input.currency,
+        fxRate: input.fxRate,
+        splitMode: input.splitMode,
+        payments: { create: [{ memberId: input.payerMemberId, amountCents: total }] },
+        shares: { create: shares.map((s) => ({ memberId: s.memberId, amountCents: s.amountCents })) },
+      },
+      include: EXPENSE_INCLUDE,
+    });
+    await writeAudit(tx, input.groupId, input.actorMemberId, `edited '${input.description}'`, "edit", total, "expense", e.id);
+    return e;
+  });
+  return mapExpense(updated);
 }
 
-export function recordSettlement(opts: {
+export async function revertExpense(id: string, actorMemberId: string): Promise<void> {
+  const e = await prisma.expense.findUnique({
+    where: { id },
+    select: { groupId: true, description: true, deletedAt: true, payments: { select: { amountCents: true } } },
+  });
+  if (!e || e.deletedAt) return;
+  const total = e.payments.reduce((acc, p) => acc + p.amountCents, 0);
+  await prisma.$transaction(async (tx) => {
+    await tx.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+    await writeAudit(tx, e.groupId, actorMemberId, `reverted '${e.description}'`, "revert", total, "expense", id);
+  });
+}
+
+export async function recordSettlement(opts: {
   groupId: string;
   fromMemberId: string;
   toMemberId: string;
   amountCents: number;
   actorMemberId: string;
-}): Settlement {
-  const s: Settlement = {
-    id: nextId("s"),
-    groupId: opts.groupId,
-    fromMemberId: opts.fromMemberId,
-    toMemberId: opts.toMemberId,
-    amountCents: opts.amountCents,
-    dateISO: new Date().toISOString(),
+}): Promise<Settlement> {
+  const to = await prisma.groupMember.findUnique({
+    where: { id: opts.toMemberId },
+    select: { displayName: true },
+  });
+  const s = await prisma.$transaction(async (tx) => {
+    const created = await tx.settlement.create({
+      data: {
+        groupId: opts.groupId,
+        fromMemberId: opts.fromMemberId,
+        toMemberId: opts.toMemberId,
+        amountCents: opts.amountCents,
+      },
+    });
+    await writeAudit(
+      tx,
+      opts.groupId,
+      opts.actorMemberId,
+      `paid ${to?.displayName ?? "someone"}`,
+      "settle",
+      opts.amountCents,
+      "settlement",
+      created.id,
+    );
+    return created;
+  });
+  return {
+    id: s.id,
+    groupId: s.groupId,
+    fromMemberId: s.fromMemberId,
+    toMemberId: s.toMemberId,
+    amountCents: s.amountCents,
+    dateISO: s.date.toISOString(),
   };
-  db.settlements.push(s);
-  const to = getMember(opts.toMemberId)?.displayName ?? "someone";
-  pushAudit(opts.groupId, opts.actorMemberId, `paid ${to}`, "settle", opts.amountCents, "settlement", s.id);
-  return s;
 }
 
 export interface CreateGroupInput {
@@ -496,79 +443,70 @@ export interface CreateGroupInput {
   baseCurrency: string;
   simplifyDebts: boolean;
   memberNames: string[];
+  /** Supabase user creating the group, if signed in. */
+  createdByUserId?: string | null;
 }
 
-export function createGroup(input: CreateGroupInput): Group {
-  const groupId = nextId("g");
-  const memberIds = input.memberNames
-    .map((n) => n.trim())
-    .filter(Boolean)
-    .map((displayName) => {
-      const m: Member = { id: nextId("m"), groupId, displayName };
-      db.members.push(m);
-      return m.id;
-    });
-  const group: Group = {
-    id: groupId,
-    name: input.name.trim() || "Untitled group",
-    baseCurrency: input.baseCurrency,
-    shareToken: randomToken(),
-    simplifyDebts: input.simplifyDebts,
-    createdByMemberId: memberIds[0] ?? "",
-  };
-  db.groups.push(group);
-  return group;
+export async function createGroup(input: CreateGroupInput): Promise<Group> {
+  const names = input.memberNames.map((n) => n.trim()).filter(Boolean);
+  return prisma.group.create({
+    data: {
+      name: input.name.trim() || "Untitled group",
+      baseCurrency: input.baseCurrency,
+      shareToken: randomToken(),
+      simplifyDebts: input.simplifyDebts,
+      createdByUserId: input.createdByUserId ?? null,
+      members: { create: names.map((displayName) => ({ displayName })) },
+    },
+  });
 }
 
-export function updateGroup(
+export async function updateGroup(
   id: string,
   patch: Partial<Pick<Group, "name" | "baseCurrency" | "simplifyDebts">>,
-): void {
-  const g = getGroup(id);
-  if (!g) return;
-  Object.assign(g, patch);
+): Promise<void> {
+  const data: Record<string, unknown> = {};
+  if (patch.name != null) data.name = patch.name;
+  if (patch.baseCurrency != null) data.baseCurrency = patch.baseCurrency;
+  if (patch.simplifyDebts != null) data.simplifyDebts = patch.simplifyDebts;
+  await prisma.group.update({ where: { id }, data });
 }
 
-export function regenerateShareToken(id: string): string | undefined {
-  const g = getGroup(id);
-  if (!g) return undefined;
-  g.shareToken = randomToken();
-  return g.shareToken;
+export async function regenerateShareToken(id: string): Promise<string> {
+  const token = randomToken();
+  await prisma.group.update({ where: { id }, data: { shareToken: token } });
+  return token;
 }
 
-export function deleteGroup(id: string): void {
-  db.groups = db.groups.filter((g) => g.id !== id);
-  db.members = db.members.filter((m) => m.groupId !== id);
-  db.expenses = db.expenses.filter((e) => e.groupId !== id);
-  db.settlements = db.settlements.filter((s) => s.groupId !== id);
-  db.audit = db.audit.filter((a) => a.groupId !== id);
+export async function deleteGroup(id: string): Promise<void> {
+  // Group relations cascade (members, expenses, settlements, audit logs).
+  await prisma.group.delete({ where: { id } });
 }
 
-/** Claim an existing slot, or create + claim a new one. Returns memberId. */
-export function claimSlot(opts: {
+/** Claim an existing slot, or create a new one. Returns the acting memberId. */
+export async function claimSlot(opts: {
   groupId: string;
   memberId?: string;
   newName?: string;
-  email?: string;
-}): string {
+}): Promise<string> {
   if (opts.memberId) {
-    const m = getMember(opts.memberId);
-    if (m) {
-      m.claimedEmail = opts.email ?? m.claimedEmail ?? "guest@share-link";
-      return m.id;
-    }
+    const m = await prisma.groupMember.findUnique({ where: { id: opts.memberId }, select: { id: true } });
+    if (m) return m.id;
   }
-  const m: Member = {
-    id: nextId("m"),
-    groupId: opts.groupId,
-    displayName: opts.newName?.trim() || "Guest",
-    claimedEmail: opts.email ?? "guest@share-link",
-  };
-  db.members.push(m);
+  const m = await prisma.groupMember.create({
+    data: { groupId: opts.groupId, displayName: opts.newName?.trim() || "Guest" },
+  });
   return m.id;
 }
 
-function pushAudit(
+// ---------------------------------------------------------------------------
+// Internals
+// ---------------------------------------------------------------------------
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+async function writeAudit(
+  tx: Tx,
   groupId: string,
   actorMemberId: string,
   action: string,
@@ -577,16 +515,8 @@ function pushAudit(
   entityType?: AuditEntry["entityType"],
   entityId?: string,
 ) {
-  db.audit.push({
-    id: nextId("a"),
-    groupId,
-    actorMemberId,
-    action,
-    amountCents,
-    kind,
-    entityType,
-    entityId,
-    createdISO: new Date().toISOString(),
+  await tx.auditLog.create({
+    data: { groupId, actorMemberId, action, kind, amountCents, entityType, entityId },
   });
 }
 

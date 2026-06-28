@@ -28,46 +28,17 @@ import {
   revertExpense,
   updateExpense,
   updateGroup,
-  type PayShare,
   type SplitMode,
 } from "@/lib/store";
 import { rateToBase } from "@/lib/fx";
-
-const toCents = (dollars: number) => Math.round(dollars * 100);
+import { resolveParticipants, toCents } from "@/lib/splits";
 
 /**
- * Resolve the gross share (base-currency cents) each member owes, from the raw
- * split inputs. Mirrors the split resolvers described in the design.
+ * Append a toast message the <Toaster> picks up after the redirect. The `ft`
+ * nonce makes consecutive identical messages distinct so each one still shows.
  */
-function resolveParticipants(
-  totalBaseCents: number,
-  memberIds: string[],
-  mode: SplitMode,
-  rawValues: number[],
-  payerMemberId: string,
-): PayShare[] {
-  const payerIdx = Math.max(0, memberIds.indexOf(payerMemberId));
-
-  if (mode === "equal") {
-    const base = Math.trunc(totalBaseCents / memberIds.length);
-    const remainder = totalBaseCents - base * memberIds.length;
-    return memberIds.map((memberId, i) => ({
-      memberId,
-      amountCents: base + (i === payerIdx ? remainder : 0),
-    }));
-  }
-
-  if (mode === "percent") {
-    // rawValues are percentages; allocate cents and give rounding remainder to payer.
-    const allocated = memberIds.map((_, i) => Math.round((totalBaseCents * (rawValues[i] || 0)) / 100));
-    const drift = totalBaseCents - allocated.reduce((a, b) => a + b, 0);
-    allocated[payerIdx] += drift;
-    return memberIds.map((memberId, i) => ({ memberId, amountCents: allocated[i] }));
-  }
-
-  // unequal: rawValues are dollar amounts per member.
-  return memberIds.map((memberId, i) => ({ memberId, amountCents: toCents(rawValues[i] || 0) }));
-}
+const withFlash = (path: string, msg: string) =>
+  `${path}?flash=${encodeURIComponent(msg)}&ft=${Date.now()}`;
 
 // ---------------------------------------------------------------------------
 // Expenses
@@ -76,7 +47,7 @@ function resolveParticipants(
 export async function saveExpenseAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const editingId = formData.get("expenseId") ? String(formData.get("expenseId")) : undefined;
-  const group = getGroup(groupId);
+  const group = await getGroup(groupId);
   if (!group) redirect("/groups");
 
   const description = String(formData.get("description") || "").trim() || "Untitled";
@@ -88,7 +59,7 @@ export async function saveExpenseAction(formData: FormData) {
   const note = String(formData.get("note") || "").trim() || undefined;
   const dateISO = String(formData.get("date") || new Date().toISOString().slice(0, 10));
 
-  const members = getMembers(groupId);
+  const members = await getMembers(groupId);
   const memberIds = members.map((m) => m.id);
   const rawValues = memberIds.map((id) => Number(formData.get(`split-${id}`) || 0));
 
@@ -96,7 +67,7 @@ export async function saveExpenseAction(formData: FormData) {
   const totalBaseCents = Math.round(toCents(amount) * fxRate);
   const participants = resolveParticipants(totalBaseCents, memberIds, mode, rawValues, payerMemberId);
 
-  const actorMemberId = currentMemberId(groupId);
+  const actorMemberId = await currentMemberId(groupId);
   const payload = {
     groupId,
     description,
@@ -110,28 +81,28 @@ export async function saveExpenseAction(formData: FormData) {
     actorMemberId,
   };
 
-  if (editingId) updateExpense(editingId, payload);
-  else addExpense(payload);
+  if (editingId) await updateExpense(editingId, payload);
+  else await addExpense(payload);
 
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/activity`);
-  redirect(`/groups/${groupId}`);
+  redirect(withFlash(`/groups/${groupId}`, editingId ? "Expense updated" : "Expense added"));
 }
 
 export async function revertExpenseAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const expenseId = String(formData.get("expenseId"));
-  const actorMemberId = currentMemberId(groupId);
+  const actorMemberId = await currentMemberId(groupId);
 
   // Only the group admin or the member who created the expense may undo it.
-  if (!canRevertExpense(expenseId, actorMemberId)) {
+  if (!(await canRevertExpense(expenseId, actorMemberId))) {
     throw new Error("Not allowed: only the group admin or the expense's creator can undo it.");
   }
 
-  revertExpense(expenseId, actorMemberId);
+  await revertExpense(expenseId, actorMemberId);
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/activity`);
-  redirect(`/groups/${groupId}`);
+  redirect(withFlash(`/groups/${groupId}`, "Expense reverted"));
 }
 
 // ---------------------------------------------------------------------------
@@ -142,14 +113,14 @@ export async function recordSettlementAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const fromMemberId = String(formData.get("fromMemberId"));
   const toMemberId = String(formData.get("toMemberId"));
-  const actorMemberId = currentMemberId(groupId);
+  const actorMemberId = await currentMemberId(groupId);
 
   // Only the two parties involved in the payment may record it.
   if (!canSettle(fromMemberId, toMemberId, actorMemberId)) {
     throw new Error("Not allowed: only the payer or payee can record this payment.");
   }
 
-  recordSettlement({
+  await recordSettlement({
     groupId,
     fromMemberId,
     toMemberId,
@@ -159,7 +130,7 @@ export async function recordSettlementAction(formData: FormData) {
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/settle`);
   revalidatePath(`/groups/${groupId}/activity`);
-  redirect(`/groups/${groupId}`);
+  redirect(withFlash(`/groups/${groupId}`, "Payment recorded"));
 }
 
 // ---------------------------------------------------------------------------
@@ -168,40 +139,40 @@ export async function recordSettlementAction(formData: FormData) {
 
 export async function createGroupAction(formData: FormData) {
   const memberNames = formData.getAll("memberName").map((v) => String(v));
-  const group = createGroup({
+  const group = await createGroup({
     name: String(formData.get("name") || ""),
     baseCurrency: String(formData.get("baseCurrency") || "USD"),
     simplifyDebts: formData.get("simplifyDebts") === "on",
     memberNames,
   });
   revalidatePath("/groups");
-  redirect(`/groups/${group.id}`);
+  redirect(withFlash(`/groups/${group.id}`, "Group created"));
 }
 
 export async function updateGroupAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
-  updateGroup(groupId, {
+  await updateGroup(groupId, {
     name: String(formData.get("name") || "").trim() || undefined,
     baseCurrency: String(formData.get("baseCurrency") || "USD"),
     simplifyDebts: formData.get("simplifyDebts") === "on",
   });
   revalidatePath(`/groups/${groupId}`);
   revalidatePath(`/groups/${groupId}/settings`);
-  redirect(`/groups/${groupId}/settings`);
+  redirect(withFlash(`/groups/${groupId}/settings`, "Settings saved"));
 }
 
 export async function regenerateLinkAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
-  regenerateShareToken(groupId);
+  await regenerateShareToken(groupId);
   revalidatePath(`/groups/${groupId}/settings`);
-  redirect(`/groups/${groupId}/settings`);
+  redirect(withFlash(`/groups/${groupId}/settings`, "Share link regenerated"));
 }
 
 export async function deleteGroupAction(formData: FormData) {
   const groupId = String(formData.get("groupId"));
-  deleteGroup(groupId);
+  await deleteGroup(groupId);
   revalidatePath("/groups");
-  redirect("/groups");
+  redirect(withFlash("/groups", "Group deleted"));
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +185,7 @@ export async function claimSlotAction(formData: FormData) {
   const memberId = formData.get("memberId") ? String(formData.get("memberId")) : undefined;
   const newName = formData.get("newName") ? String(formData.get("newName")) : undefined;
 
-  const claimedId = claimSlot({ groupId, memberId, newName });
+  const claimedId = await claimSlot({ groupId, memberId, newName });
 
   // Mark the visitor as authorized for this group via the share token, exactly
   // as src/lib/auth.ts expects on the write path.
@@ -223,5 +194,5 @@ export async function claimSlotAction(formData: FormData) {
   jar.set("member_id", claimedId, { httpOnly: true, sameSite: "lax", path: "/" });
 
   revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  redirect(withFlash(`/groups/${groupId}`, "Joined group"));
 }

@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Avatar, BalanceChip, Card, LinkButton } from "@/components/ui";
 import { getBalances, getGroup, getMembers } from "@/lib/store";
 
-export default function LandingPage() {
-  const demo = getGroup("tahoe");
-  const members = demo ? getMembers(demo.id) : [];
-  const balances = demo ? getBalances(demo.id) : new Map<string, number>();
+export default async function LandingPage() {
+  const demo = await getGroup("tahoe");
+  const members = demo ? await getMembers(demo.id) : [];
+  const balances = demo ? await getBalances(demo.id) : new Map<string, number>();
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-6 py-6">

@@ -8,7 +8,7 @@ export default async function ShareLinkEntryPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const group = getGroupByToken(token);
+  const group = await getGroupByToken(token);
 
   if (!group) {
     return (
@@ -26,7 +26,7 @@ export default async function ShareLinkEntryPage({
     );
   }
 
-  const members = getMembers(group.id);
+  const members = await getMembers(group.id);
 
   return (
     <div className="flex min-h-full items-center justify-center bg-[#FAFAFA] px-4 py-12">

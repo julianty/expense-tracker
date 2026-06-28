@@ -2,8 +2,15 @@ import Link from "next/link";
 import { AvatarStack, BalanceChip, Card, LinkButton } from "@/components/ui";
 import { currentMemberId, getBalances, getGroups, getMembers } from "@/lib/store";
 
-export default function GroupsPage() {
-  const groups = getGroups();
+export default async function GroupsPage() {
+  const groups = await getGroups();
+  const rows = await Promise.all(
+    groups.map(async (g) => ({
+      group: g,
+      members: await getMembers(g.id),
+      youBalance: (await getBalances(g.id)).get(await currentMemberId(g.id)) ?? 0,
+    })),
+  );
 
   return (
     <div className="mx-auto w-full max-w-[480px] px-6 py-8">
@@ -22,10 +29,7 @@ export default function GroupsPage() {
             </p>
           ) : (
             <div className="mt-5 flex flex-col gap-3">
-              {groups.map((g) => {
-                const members = getMembers(g.id);
-                const balances = getBalances(g.id);
-                const youBalance = balances.get(currentMemberId(g.id)) ?? 0;
+              {rows.map(({ group: g, members, youBalance }) => {
                 return (
                   <Link key={g.id} href={`/groups/${g.id}`}>
                     <Card className="flex items-center justify-between p-4 transition-shadow hover:shadow-md">

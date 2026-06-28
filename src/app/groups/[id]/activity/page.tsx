@@ -4,13 +4,12 @@ import { Avatar, Card } from "@/components/ui";
 import { ConfirmSubmit } from "@/components/client";
 import { revertExpenseAction } from "@/app/actions";
 import {
-  canRevertExpense,
   currentMemberId,
   getAudit,
-  getExpense,
+  getExpenses,
   getGroup,
-  getMember,
-  memberIndex,
+  getMembers,
+  isAdmin,
 } from "@/lib/store";
 import { formatCents, formatDateTime } from "@/lib/format";
 
@@ -20,10 +19,19 @@ export default async function ActivityPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const group = getGroup(id);
+  const group = await getGroup(id);
   if (!group) notFound();
-  const audit = getAudit(id);
-  const me = currentMemberId(id);
+
+  const [audit, me, members, liveExpenses] = await Promise.all([
+    getAudit(id),
+    currentMemberId(id),
+    getMembers(id),
+    getExpenses(id),
+  ]);
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const idxById = new Map(members.map((m, i) => [m.id, i]));
+  const liveById = new Map(liveExpenses.map((e) => [e.id, e]));
+  const meIsAdmin = await isAdmin(id, me);
 
   return (
     <div className="mx-auto w-full max-w-[480px] px-6 py-8">
@@ -39,14 +47,14 @@ export default async function ActivityPage({
               <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
             )}
             {audit.map((a, idx) => {
-              const actor = getMember(a.actorMemberId);
-              // Can revert a non-reverted expense creation that's still live.
+              const actor = memberById.get(a.actorMemberId);
+              // Can revert a still-live expense creation, if admin or its creator.
               const liveExpense =
                 a.kind === "create" && a.entityType === "expense" && a.entityId
-                  ? getExpense(a.entityId)
+                  ? liveById.get(a.entityId)
                   : undefined;
               const canRevert =
-                liveExpense && !liveExpense.deleted && canRevertExpense(liveExpense.id, me);
+                !!liveExpense && (meIsAdmin || liveExpense.createdByMemberId === me);
 
               return (
                 <div
@@ -55,7 +63,7 @@ export default async function ActivityPage({
                     idx < audit.length - 1 ? "border-b border-border" : ""
                   }`}
                 >
-                  <Avatar name={actor?.displayName ?? "?"} seed={memberIndex(id, a.actorMemberId)} />
+                  <Avatar name={actor?.displayName ?? "?"} seed={idxById.get(a.actorMemberId) ?? 0} />
                   <div className="flex-1">
                     <div className="text-sm">
                       <span className="font-medium">{actor?.displayName}</span> {a.action}
@@ -79,7 +87,7 @@ export default async function ActivityPage({
                   {canRevert && (
                     <ConfirmSubmit
                       action={revertExpenseAction}
-                      fields={{ groupId: id, expenseId: a.entityId! }}
+                      fields={{ groupId: id, expenseId: liveExpense.id }}
                       triggerLabel="Revert"
                       triggerVariant="ghost"
                       triggerClassName="px-2 py-1 text-xs"

@@ -8,9 +8,7 @@ import {
   getBalances,
   getExpenses,
   getGroup,
-  getMember,
   getMembers,
-  memberIndex,
 } from "@/lib/store";
 import { formatCents, formatShortDate, formatDateTime } from "@/lib/format";
 
@@ -20,13 +18,18 @@ export default async function GroupDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const group = getGroup(id);
+  const group = await getGroup(id);
   if (!group) notFound();
 
-  const members = getMembers(id);
-  const balances = getBalances(id);
-  const expenses = getExpenses(id);
-  const audit = getAudit(id).slice(0, 6);
+  const [members, balances, expenses, allAudit] = await Promise.all([
+    getMembers(id),
+    getBalances(id),
+    getExpenses(id),
+    getAudit(id),
+  ]);
+  const audit = allAudit.slice(0, 6);
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const idxById = new Map(members.map((m, i) => [m.id, i]));
 
   const expensesTab = (
     <div className="mt-1.5 flex flex-col">
@@ -36,7 +39,7 @@ export default async function GroupDetailPage({
         </p>
       )}
       {expenses.map((e, idx) => {
-        const payer = getMember(e.payments[0]?.memberId);
+        const payer = memberById.get(e.payments[0]?.memberId);
         return (
           <Link
             key={e.id}
@@ -47,7 +50,7 @@ export default async function GroupDetailPage({
           >
             <Avatar
               name={payer?.displayName ?? "?"}
-              seed={memberIndex(id, payer?.id ?? "")}
+              seed={idxById.get(payer?.id ?? "") ?? 0}
             />
             <div className="flex-1">
               <div className="text-sm">{e.description}</div>
@@ -67,13 +70,13 @@ export default async function GroupDetailPage({
   const activityTab = (
     <div className="mt-1.5 flex flex-col">
       {audit.map((a, idx) => {
-        const actor = getMember(a.actorMemberId);
+        const actor = memberById.get(a.actorMemberId);
         return (
           <div
             key={a.id}
             className={`flex gap-3 py-3.5 ${idx < audit.length - 1 ? "border-b border-border" : ""}`}
           >
-            <Avatar name={actor?.displayName ?? "?"} seed={memberIndex(id, a.actorMemberId)} />
+            <Avatar name={actor?.displayName ?? "?"} seed={idxById.get(a.actorMemberId) ?? 0} />
             <div className="flex-1">
               <div className="text-sm">
                 <span className="font-medium">{actor?.displayName}</span> {a.action}

@@ -7,9 +7,8 @@ import {
   canSettle,
   currentMemberId,
   getGroup,
-  getMember,
+  getMembers,
   getSimplifiedPayments,
-  memberIndex,
 } from "@/lib/store";
 import { formatCents } from "@/lib/format";
 
@@ -19,11 +18,16 @@ export default async function SettlePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const group = getGroup(id);
+  const group = await getGroup(id);
   if (!group) notFound();
 
-  const payments = getSimplifiedPayments(id);
-  const me = currentMemberId(id);
+  const [payments, me, members] = await Promise.all([
+    getSimplifiedPayments(id),
+    currentMemberId(id),
+    getMembers(id),
+  ]);
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const idxById = new Map(members.map((m, i) => [m.id, i]));
 
   return (
     <div className="mx-auto w-full max-w-[460px] px-6 py-8">
@@ -43,16 +47,16 @@ export default async function SettlePage({
 
           <div className="flex flex-col gap-3">
             {payments.map((p, i) => {
-              const from = getMember(p.fromMemberId);
-              const to = getMember(p.toMemberId);
+              const from = memberById.get(p.fromMemberId);
+              const to = memberById.get(p.toMemberId);
               const amount = formatCents(p.amountCents, group.baseCurrency);
               const mayRecord = canSettle(p.fromMemberId, p.toMemberId, me);
               return (
                 <Card key={i} className="flex items-center gap-3 p-4 shadow-none">
                   <div className="flex items-center gap-2">
-                    <Avatar name={from?.displayName ?? "?"} seed={memberIndex(id, p.fromMemberId)} />
+                    <Avatar name={from?.displayName ?? "?"} seed={idxById.get(p.fromMemberId) ?? 0} />
                     <span className="text-muted-foreground">→</span>
-                    <Avatar name={to?.displayName ?? "?"} seed={memberIndex(id, p.toMemberId)} />
+                    <Avatar name={to?.displayName ?? "?"} seed={idxById.get(p.toMemberId) ?? 0} />
                   </div>
                   <div className="flex-1 text-sm">
                     {from?.displayName} pays {to?.displayName}{" "}

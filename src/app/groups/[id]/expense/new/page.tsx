@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui";
 import { ExpenseForm, type ExpenseFormInitial } from "@/components/expense-form";
 import { expenseTotalCents, getExpense, getGroup, getMembers } from "@/lib/store";
+import { getRatesToBase } from "@/lib/fx";
 
 export default async function NewExpensePage({
   params,
@@ -12,14 +13,14 @@ export default async function NewExpensePage({
 }) {
   const { id } = await params;
   const { edit } = await searchParams;
-  const group = getGroup(id);
+  const group = await getGroup(id);
   if (!group) notFound();
-  const members = getMembers(id);
+  const [members, rates] = await Promise.all([getMembers(id), getRatesToBase(group.baseCurrency)]);
 
   // Prefill when editing an existing expense.
   let initial: ExpenseFormInitial = {};
   if (edit) {
-    const e = getExpense(edit);
+    const e = await getExpense(edit);
     if (e && e.groupId === id) {
       const total = expenseTotalCents(e);
       const splitValues: Record<string, string> = {};
@@ -53,6 +54,7 @@ export default async function NewExpensePage({
           groupName={group.name}
           baseCurrency={group.baseCurrency}
           members={members.map((m) => ({ id: m.id, displayName: m.displayName }))}
+          rates={rates}
           initial={initial}
         />
       </Card>

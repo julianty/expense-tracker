@@ -9,8 +9,7 @@ import {
   expenseTotalCents,
   getExpense,
   getGroup,
-  getMember,
-  memberIndex,
+  getMembers,
 } from "@/lib/store";
 import { formatCents, formatLongDate } from "@/lib/format";
 
@@ -20,14 +19,16 @@ export default async function ExpenseDetailPage({
   params: Promise<{ id: string; expenseId: string }>;
 }) {
   const { id, expenseId } = await params;
-  const group = getGroup(id);
-  const expense = getExpense(expenseId);
+  const [group, expense, members] = await Promise.all([getGroup(id), getExpense(expenseId), getMembers(id)]);
   if (!group || !expense || expense.groupId !== id) notFound();
 
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const idxById = new Map(members.map((m, i) => [m.id, i]));
+
   const total = expenseTotalCents(expense);
-  const me = currentMemberId(id);
-  const mayUndo = canRevertExpense(expense.id, me);
-  const payer = getMember(expense.payments[0]?.memberId);
+  const me = await currentMemberId(id);
+  const mayUndo = await canRevertExpense(expense.id, me);
+  const payer = memberById.get(expense.payments[0]?.memberId);
   // Debtors = participants who aren't the payer (net owed to payer).
   const debtors = expense.participants.filter((p) => p.memberId !== payer?.id && p.amountCents > 0);
 
@@ -54,7 +55,7 @@ export default async function ExpenseDetailPage({
 
           <div className="mb-3 text-[13px] font-medium">Paid by</div>
           <div className="flex items-center gap-2.5 text-sm">
-            <Avatar name={payer?.displayName ?? "?"} seed={memberIndex(id, payer?.id ?? "")} />
+            <Avatar name={payer?.displayName ?? "?"} seed={idxById.get(payer?.id ?? "") ?? 0} />
             {payer?.displayName}
             <span className="ml-auto font-medium tnum">{formatCents(total, group.baseCurrency)}</span>
           </div>
@@ -62,10 +63,10 @@ export default async function ExpenseDetailPage({
           <div className="mb-3 mt-5 text-[13px] font-medium">Owes</div>
           <div className="flex flex-col gap-3">
             {debtors.map((d) => {
-              const m = getMember(d.memberId);
+              const m = memberById.get(d.memberId);
               return (
                 <div key={d.memberId} className="flex items-center gap-2.5 text-sm">
-                  <Avatar name={m?.displayName ?? "?"} seed={memberIndex(id, d.memberId)} />
+                  <Avatar name={m?.displayName ?? "?"} seed={idxById.get(d.memberId) ?? 0} />
                   {m?.displayName}
                   <span className="ml-auto text-owe tnum">
                     {formatCents(d.amountCents, group.baseCurrency)}
@@ -116,7 +117,7 @@ export default async function ExpenseDetailPage({
               />
             ) : (
               <span className="px-4 py-2 text-xs text-muted-foreground">
-                Only {getMember(expense.createdByMemberId)?.displayName} or an admin can undo
+                Only {memberById.get(expense.createdByMemberId)?.displayName} or an admin can undo
               </span>
             )}
           </div>
