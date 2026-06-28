@@ -11,6 +11,7 @@ import {
   getGroup,
   getMembers,
 } from "@/lib/store";
+import { getSignedReceiptUrl } from "@/lib/storage";
 import { formatCents, formatLongDate } from "@/lib/format";
 
 export default async function ExpenseDetailPage({
@@ -31,6 +32,8 @@ export default async function ExpenseDetailPage({
   const payer = memberById.get(expense.payments[0]?.memberId);
   // Debtors = participants who aren't the payer (net owed to payer).
   const debtors = expense.participants.filter((p) => p.memberId !== payer?.id && p.amountCents > 0);
+  // Signed URL for a private receipt; null if no receipt or storage not configured.
+  const receiptUrl = expense.imageUrl ? await getSignedReceiptUrl(expense.imageUrl) : null;
 
   return (
     <div className="mx-auto w-full max-w-[460px] px-6 py-8">
@@ -82,16 +85,25 @@ export default async function ExpenseDetailPage({
             </p>
           )}
 
-          {/* receipt placeholder */}
-          <div
-            className="my-[18px] flex h-24 items-center justify-center rounded-lg border border-border font-mono text-xs text-muted-foreground"
-            style={{
-              background:
-                "repeating-linear-gradient(45deg,#FAFAFA,#FAFAFA 10px,#F4F4F5 10px,#F4F4F5 20px)",
-            }}
-          >
-            {expense.imageUrl ? "receipt.jpg" : "No receipt attached"}
-          </div>
+          {/* receipt */}
+          {receiptUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={receiptUrl}
+              alt="Receipt"
+              className="my-[18px] max-h-80 w-full rounded-lg border border-border object-contain"
+            />
+          ) : (
+            <div
+              className="my-[18px] flex h-24 items-center justify-center rounded-lg border border-border font-mono text-xs text-muted-foreground"
+              style={{
+                background:
+                  "repeating-linear-gradient(45deg,#FAFAFA,#FAFAFA 10px,#F4F4F5 10px,#F4F4F5 20px)",
+              }}
+            >
+              {expense.imageUrl ? "Receipt attached — storage not configured" : "No receipt attached"}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2.5 border-t border-border pt-[18px]">
             <LinkButton

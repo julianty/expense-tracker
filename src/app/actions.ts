@@ -32,6 +32,7 @@ import {
 } from "@/lib/store";
 import { rateToBase } from "@/lib/fx";
 import { resolveParticipants, toCents } from "@/lib/splits";
+import { uploadReceipt } from "@/lib/storage";
 
 /**
  * Append a toast message the <Toaster> picks up after the redirect. The `ft`
@@ -67,6 +68,13 @@ export async function saveExpenseAction(formData: FormData) {
   const totalBaseCents = Math.round(toCents(amount) * fxRate);
   const participants = resolveParticipants(totalBaseCents, memberIds, mode, rawValues, payerMemberId);
 
+  // Upload a receipt if one was attached (no-ops to undefined without a key/bucket).
+  const receipt = formData.get("receipt");
+  let imageUrl: string | undefined;
+  if (receipt instanceof File && receipt.size > 0) {
+    imageUrl = (await uploadReceipt(receipt, groupId)) ?? undefined;
+  }
+
   const actorMemberId = await currentMemberId(groupId);
   const payload = {
     groupId,
@@ -78,6 +86,7 @@ export async function saveExpenseAction(formData: FormData) {
     payerMemberId,
     participants,
     splitMode: mode,
+    imageUrl,
     actorMemberId,
   };
 

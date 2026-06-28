@@ -58,6 +58,7 @@ export function ExpenseForm({
   const [payerId, setPayerId] = useState(initial.payerMemberId ?? members[0]?.id ?? "");
   const [mode, setMode] = useState<SplitMode>(initial.splitMode ?? "equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>(initial.splitValues ?? {});
+  const [receiptName, setReceiptName] = useState<string | null>(null);
 
   const rate = Number(fxRate) || 1;
   const enteredCents = Math.round((Number(amount) || 0) * 100);
@@ -315,9 +316,15 @@ export function ExpenseForm({
           </div>
           <div className="flex-1">
             <label className="mb-1.5 block text-[13px] font-medium">Receipt</label>
-            <label className="flex h-9 cursor-pointer items-center justify-center rounded-[6px] border border-border text-[13px] text-muted-foreground hover:bg-muted">
-              Attach receipt
-              <input type="file" name="receipt" accept="image/*" className="hidden" />
+            <label className="flex h-9 cursor-pointer items-center justify-center truncate rounded-[6px] border border-border px-2 text-[13px] text-muted-foreground hover:bg-muted">
+              <span className="truncate">{receiptName ?? "Attach receipt"}</span>
+              <input
+                type="file"
+                name="receipt"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setReceiptName(e.target.files?.[0]?.name ?? null)}
+              />
             </label>
           </div>
         </div>

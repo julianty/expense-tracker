@@ -319,6 +319,8 @@ export interface ExpenseInput {
   /** Gross share per member in base-currency cents, summing to the total. */
   participants: PayShare[];
   splitMode: SplitMode;
+  /** Storage object path of an uploaded receipt, if any. */
+  imageUrl?: string;
   actorMemberId: string;
 }
 
@@ -346,6 +348,7 @@ export async function addExpense(input: ExpenseInput): Promise<Expense> {
         currency: input.currency,
         fxRate: input.fxRate,
         splitMode: input.splitMode,
+        imageUrl: input.imageUrl,
         createdByMemberId: input.actorMemberId,
         payments: { create: [{ memberId: input.payerMemberId, amountCents: total }] },
         shares: { create: shares.map((s) => ({ memberId: s.memberId, amountCents: s.amountCents })) },
@@ -372,6 +375,8 @@ export async function updateExpense(id: string, input: ExpenseInput): Promise<Ex
         currency: input.currency,
         fxRate: input.fxRate,
         splitMode: input.splitMode,
+        // Only replace the receipt when a new one was uploaded.
+        ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
         payments: { create: [{ memberId: input.payerMemberId, amountCents: total }] },
         shares: { create: shares.map((s) => ({ memberId: s.memberId, amountCents: s.amountCents })) },
       },
