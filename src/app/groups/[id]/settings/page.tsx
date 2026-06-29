@@ -1,16 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button, Card, Separator } from "@/components/ui";
+import { Card, Separator } from "@/components/ui";
 import { ConfirmSubmit, CopyButton, MemberRow } from "@/components/client";
-import {
-  addMemberAction,
-  deleteGroupAction,
-  regenerateLinkAction,
-  updateGroupAction,
-} from "@/app/actions";
+import { deleteGroupAction } from "@/app/actions";
+import { AddMemberForm, GroupInfoForm, RegenerateLinkButton } from "@/components/settings-forms";
 import { getGroup, getMembers, isAdmin } from "@/lib/store";
 import { getActingMemberId } from "@/lib/auth";
-import { CURRENCIES } from "@/lib/format";
 
 export default async function GroupSettingsPage({
   params,
@@ -25,9 +20,6 @@ export default async function GroupSettingsPage({
   const canManage = await isAdmin(id, actingMemberId);
   const shareDisplay = `app.split/g/${group.shareToken}`;
 
-  const inputCls =
-    "h-9 w-full rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
-
   return (
     <div className="mx-auto w-full max-w-[480px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
@@ -38,38 +30,12 @@ export default async function GroupSettingsPage({
           <h1 className="mb-5 mt-2.5 text-2xl font-medium tracking-[-0.01em]">Settings</h1>
 
           {/* group info */}
-          <form action={updateGroupAction}>
-            <input type="hidden" name="groupId" value={id} />
-            <div className="mb-2.5 text-[13px] font-medium">Group info</div>
-            <div className="flex flex-col gap-2.5">
-              <input name="name" defaultValue={group.name} className={inputCls} />
-              <select
-                name="baseCurrency"
-                defaultValue={group.baseCurrency}
-                className="h-9 w-full rounded-[6px] border border-border bg-background px-3 text-sm outline-none focus:border-accent"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="simplifyDebts"
-                  defaultChecked={group.simplifyDebts}
-                  className="h-4 w-4 accent-[#C57C24]"
-                />
-                Simplify debts
-              </label>
-            </div>
-            <div className="mt-3 flex justify-end">
-              <Button type="submit" className="px-4 py-1.5 text-[13px]">
-                Save changes
-              </Button>
-            </div>
-          </form>
+          <GroupInfoForm
+            groupId={id}
+            name={group.name}
+            baseCurrency={group.baseCurrency}
+            simplifyDebts={group.simplifyDebts}
+          />
 
           <Separator className="my-5" />
 
@@ -81,15 +47,7 @@ export default async function GroupSettingsPage({
             </div>
             <CopyButton value={`/g/${group.shareToken}`} label="" icon="⧉" className="px-2.5 py-2" />
           </div>
-          <form action={regenerateLinkAction} className="mt-2.5">
-            <input type="hidden" name="groupId" value={id} />
-            <button
-              type="submit"
-              className="cursor-pointer text-[13px] font-medium text-owe hover:underline"
-            >
-              Regenerate link
-            </button>
-          </form>
+          <RegenerateLinkButton groupId={id} />
 
           <Separator className="my-5" />
 
@@ -114,19 +72,7 @@ export default async function GroupSettingsPage({
             ))}
           </div>
 
-          {/* add member */}
-          <form action={addMemberAction} className="mt-3 flex items-center gap-2">
-            <input type="hidden" name="groupId" value={id} />
-            <input
-              name="memberName"
-              placeholder="Add a member…"
-              required
-              className="h-9 flex-1 rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-            />
-            <Button type="submit" variant="outline" className="px-3 py-1.5 text-[13px]">
-              Add
-            </Button>
-          </form>
+          <AddMemberForm groupId={id} />
 
           <Separator className="my-5" />
 

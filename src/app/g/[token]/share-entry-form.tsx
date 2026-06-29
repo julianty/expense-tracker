@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui";
+import { SubmitButton } from "@/components/client";
 import { claimSlotAction } from "@/app/actions";
 import { isSlotSelectable, hasReclaimableSlot, type SlotFlags } from "@/lib/membership";
 
@@ -122,9 +123,9 @@ export function ShareEntryForm({
         </p>
       )}
 
-      <button
-        type="submit"
+      <SubmitButton
         disabled={!canSubmit}
+        pendingLabel={returning ? "Rejoining…" : "Joining…"}
         className="mt-[18px] h-[38px] w-full rounded-[6px] bg-accent text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {returning
@@ -132,7 +133,7 @@ export function ShareEntryForm({
             ? `Rejoin as ${selectedMember.displayName}`
             : "Select your name above"
           : "Join group"}
-      </button>
+      </SubmitButton>
 
       {!returning && hasReclaimable && (
         <button

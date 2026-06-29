@@ -170,6 +170,29 @@ export function CopyButton({
 }
 
 // ---------------------------------------------------------------------------
+// Sign-out button with pending state
+// ---------------------------------------------------------------------------
+
+export function SignOutButton({
+  action,
+  email,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  email: string;
+}) {
+  return (
+    <form action={action} title={`Signed in as ${email}`}>
+      <SubmitButton
+        pendingLabel="Signing out…"
+        className="cursor-pointer rounded-[6px] px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+      >
+        Sign out
+      </SubmitButton>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Confirm dialog wrapping a server-action form (AlertDialog equivalent)
 // ---------------------------------------------------------------------------
 
@@ -237,12 +260,12 @@ export function MemberRow({
           required
           className="h-9 flex-1 rounded-[6px] border border-border px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
-        <button
-          type="submit"
-          className="cursor-pointer rounded-[6px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-foreground hover:bg-[#b06f1f]"
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="cursor-pointer rounded-[6px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-foreground hover:bg-[#b06f1f] disabled:pointer-events-none disabled:opacity-50"
         >
           Save
-        </button>
+        </SubmitButton>
         <button
           type="button"
           onClick={() => setEditing(false)}
@@ -356,15 +379,14 @@ export function ConfirmSubmit({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
+              <SubmitButton
                 className={cx(
                   "cursor-pointer rounded-[6px] px-4 py-2 text-sm font-medium transition-colors",
                   TRIGGER_STYLES[confirmVariant],
                 )}
               >
                 {confirmLabel}
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

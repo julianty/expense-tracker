@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AvatarStack, BalanceChip, Card, LinkButton } from "@/components/ui";
+import { SignOutButton } from "@/components/client";
 import { getBalances, getGroups, getMembers } from "@/lib/store";
 import { getActingMemberId } from "@/lib/auth";
 import { getSessionUser } from "@/lib/session";
@@ -29,15 +30,7 @@ export default async function GroupsPage() {
               <LinkButton href="/groups/new" variant="outline" className="px-3 py-1.5 text-[13px]">
                 New group
               </LinkButton>
-              <form action={signOutAction}>
-                <button
-                  type="submit"
-                  className="cursor-pointer rounded-[6px] px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                  title={`Signed in as ${user.email}`}
-                >
-                  Sign out
-                </button>
-              </form>
+              <SignOutButton action={signOutAction} email={user.email ?? ""} />
             </div>
           </div>
 

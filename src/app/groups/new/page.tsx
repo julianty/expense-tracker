@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Avatar, Card } from "@/components/ui";
+import { SubmitButton } from "@/components/client";
 import { createGroupAction } from "@/app/actions";
 import { CURRENCIES } from "@/lib/format";
 
@@ -104,12 +105,12 @@ export default function NewGroupPage() {
             </div>
 
             <div className="flex justify-end border-t border-border pt-[18px]">
-              <button
-                type="submit"
-                className="cursor-pointer rounded-[6px] bg-accent px-[18px] py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f]"
+              <SubmitButton
+                pendingLabel="Creating…"
+                className="cursor-pointer rounded-[6px] bg-accent px-[18px] py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-[#b06f1f] disabled:pointer-events-none disabled:opacity-50"
               >
                 Create group
-              </button>
+              </SubmitButton>
             </div>
           </div>
         </form>
